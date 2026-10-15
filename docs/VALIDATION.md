@@ -1,5 +1,21 @@
 # Validation record
 
+## Public Render deployment · 15 October 2026
+
+URL: **https://weather-aware-truck-routing-app.onrender.com/**. The user's Render screenshot shows deploy succeeded/live for commit **`f32f764`**, with Gunicorn listening on Render's injected port. This deployment used the manual Docker Web Service flow rather than creating a Blueprint.
+
+| Hosted check | Actual result |
+|---|---|
+| HTTPS health / frontend assets | **Passed** through TLS-verified smoke requests. Health reports `status=ok`, `demo_enabled=true`. |
+| Synthetic smoke | **Passed**: three alternatives, complete synthetic arrival forecasts, 49 corridor frames; recommendation `r3`. |
+| Live geocoding and routes | **Passed**: real Chicago/Detroit results and two distinct OSRM alternatives. |
+| Live weather / recommendation | **Not ready**: warning `Weather service rate limit reached. Wait before retrying.` Both routes have 13 checkpoints and **0 complete** arrival forecasts. `recommended_id=null`; corridor still has 49 frames with unknown weather. The live smoke correctly fails its forecast-completeness assertion. |
+| Delayed live recheck | Still rate-limited at **19:42 IST** (`2026-10-15T14:12:41Z`), about nine minutes after the earlier diagnostic. Further provider retries were stopped. Exact provider quota/reset is unknown. |
+| Hosted desktop / mobile UI | **Passed**: public page, explicitly labeled synthetic demo, alternative selection, both endpoint weather popups, +48h timeline without API calls, no horizontal overflow and no page errors. Tiles were deliberately suppressed; these checks do not establish hosted basemap availability. |
+| Loom / employer submission | **Not recorded or sent**. Script updated to disclose the hosted weather limitation if it persists. |
+
+These hosted results are separate from the successful live-provider checks previously performed on the local machine. Shared Render outbound IP quota is a plausible explanation for the cloud-only rate limit, not a verified cause. See [deployment diagnosis and options](DEPLOYMENT.md#hosted-weather-rate-limit). No application behavior was changed to replace failed live data with synthetic data.
+
 ## Current local repair validation · 15 October 2026
 
 The original ten findings have been repaired. The [repair review](CODE_REVIEW_FIXES.md) records the review loop and additional boundary/concurrency fixes. Current checks ran on native Windows with **Python 3.13.14**, **Node 24.18.0** and Playwright Chromium. Python 3.12 remains the CI/container target; it was not installed locally. These results supersede the open-finding status below; earlier evidence is retained as history.
@@ -15,7 +31,7 @@ The original ten findings have been repaired. The [repair review](CODE_REVIEW_FI
 | Live smoke | **Passed**: real geocoding, two OSRM route alternatives, complete Open-Meteo arrival forecasts, 49 corridor frames; recommendation `r1`. TLS verification retained. |
 | Actual basemap content | One standard OSM tile (`7/33/47`) fetched with TLS verification and identifying User-Agent/Referer; HTTP 200 PNG, 26,062 bytes. Visually inspected: roads, cities and Lake Michigan, with no key-required placeholder. SHA-256 `def2428ee6bc749466d965e9b2685e894502e9988c8a0efb80736f1e4a14350b`. No bulk download. |
 | Docker | **Not rerun**: local Docker engine is not running. |
-| Public hosting / recording / submission | **Not performed**. |
+| Public hosting / recording / submission at local repair time | Not performed at that stage; the subsequent public deployment is recorded above. Recording/submission remain pending. |
 
 Initial browser rerun had a popup assertion race while Leaflet's prior popup faded out; assertions now wait for removal. The subsequent full run passed. Dependencies were installed with TLS verification; no application secrets or generated assets are committed.
 
@@ -68,7 +84,7 @@ Separately, the fourth pass exercised actual live APIs and desktop/mobile intera
 
 ## Remaining actions
 
-1. Commit/push the reviewed local repairs when ready. Current changes have not been committed or pushed.
-2. Recheck Docker and the Python 3.12 CI target, then deploy using [DEPLOYMENT.md](DEPLOYMENT.md) on your own hosting account.
-3. Run `python3 scripts/smoke.py --base-url https://YOUR-HOST --live`, exercise the deployed map, then add the actual HTTPS URL and results here.
-4. Record the [walkthrough](WALKTHROUGH.md), accurately distinguishing live and synthetic data, before submitting the assessment.
+1. Resolve or disclose hosted Open-Meteo rate limiting; after a suitable pause, a successful live smoke is required before claiming hosted live weather works.
+2. Check actual hosted basemap content and exercise the deployed live route popups/slider once forecasts are available.
+3. Commit/push the deployment documentation when ready; preserve the user's independent local source edits. The application repairs are already deployed at `f32f764`.
+4. Record the [walkthrough](WALKTHROUGH.md), accurately distinguishing live and synthetic data and any unresolved hosted-provider limitation, then verify recording-link access before submitting the assessment.

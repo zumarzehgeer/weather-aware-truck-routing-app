@@ -1,6 +1,6 @@
 # Deployment handoff
 
-No hosting deployment or paid resources were created. The Docker image can run on Render or any Docker host with outbound HTTPS. The app does not need a database, migrations, persistent disk, or a separate frontend host.
+The user deployed commit `f32f764` on **Render Free** at **https://weather-aware-truck-routing-app.onrender.com/** on 15 October 2026. Health, frontend assets, synthetic smoke and hosted desktop/mobile demo interactions passed. Hosted live geocoding/routing works, but weather currently returns an upstream rate limit and remains unknown. See [current validation](VALIDATION.md). No paid resource was provisioned by the assistant. The app does not need a database, migrations, persistent disk, or a separate frontend host.
 
 ## Container
 
@@ -60,3 +60,11 @@ python3 scripts/smoke.py --base-url https://YOUR-HOST --live
 The default checks the labeled demo, assets and health. `--live` checks city geocoding and a real near-term route/weather plan; it makes external requests and consumes free quotas. A live failure is not replaced by fixtures. Inspect provider throttles/availability/network policy before retrying. The script reports forecast incompleteness as a failed live-readiness check.
 
 For production operations beyond this assessment, arrange truck-aware routing, commercial-use weather access, managed cache/quotas, monitoring and availability targets before taking real fleet traffic.
+
+## Hosted weather rate limit
+
+The hosted API reported `Weather service rate limit reached. Wait before retrying.` during the first live check and again about nine minutes later. Both alternatives had zero complete weather checkpoints; the app correctly withheld a recommendation. This is an upstream rate limit, distinct from the app's own request-budget messages. The public warning does not expose the provider's minute/hour/day reset reason or `Retry-After`, so the reset time is not established.
+
+[Render documents shared outbound IP ranges](https://render.com/docs/outbound-ip-addresses), and an [Open-Meteo discussion](https://github.com/open-meteo/open-meteo/discussions/115) describes shared-IP quotas affecting hosted callers. Shared egress quota is a plausible explanation here, not a confirmed diagnosis of the specific limit. Repeated Compare clicks and service redeploys do not establish that quota has reset; pause provider requests.
+
+If the free endpoint continues to reject normal evaluation traffic after its quota resets, ask Open-Meteo about suitable non-commercial access or use an approved customer account. The [customer API](https://open-meteo.com/en/pricing) requires its customer hostname **and** an `apikey` parameter. The current adapter has no configurable customer API-key parameter, so changing `WEATHER_BASE_URL` alone is insufficient. Add and test server-side key support before configuring customer credentials. No subscription or provider contact has been made.

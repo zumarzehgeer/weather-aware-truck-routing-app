@@ -2,7 +2,7 @@
 
 A React + Django assessment application for comparing route weather exposure at a truck’s estimated arrival times. The map shows every available alternative, weather checkpoints, and a separate 0–48-hour forecast corridor.
 
-**Status:** the original ten review findings have been repaired, along with additional input/date and concurrent-provider boundaries found during the local review loop. The basemap now uses OpenStreetMap standard tiles. See the [repair review](docs/CODE_REVIEW_FIXES.md) and [current validation](docs/VALIDATION.md) for evidence and limitations. No public deployment, submission or employer contact has been made.
+**Status:** deployed at **[weather-aware-truck-routing-app.onrender.com](https://weather-aware-truck-routing-app.onrender.com/)**. The original ten review findings have been repaired, along with additional boundary/concurrency fixes. Hosted health, frontend assets and synthetic-demo desktop/mobile interactions pass. **Hosted live weather is currently rate-limited by Open-Meteo**: real geocoding and routes work, but unavailable forecasts remain unknown and prevent recommendations. See the [repair review](docs/CODE_REVIEW_FIXES.md) and [current validation](docs/VALIDATION.md). No assessment submission or employer contact has been made.
 
 ## Run locally
 
@@ -173,7 +173,7 @@ Backend tests cover every supplied threshold/load boundary, unit conversion, num
 
 See [precise Docker and Render instructions](docs/DEPLOYMENT.md). A tested multi-stage Dockerfile serves both frontend and backend under a single origin, with a non-root runtime, startup secret validation, static compression, a health check, and bounded Gunicorn concurrency. `render.yaml` prepares a free-tier Blueprint; it has **not** created infrastructure or incurred charges.
 
-No usable configured hosting account/destination was provided, so no public application URL is claimed. Review the provider’s non-commercial terms and hosting plan, push the source to a GitHub branch, connect the repo to your host, set the environment variables, deploy the Dockerfile, and run the documented live checks. Cloud onboarding configuration saves do not push the repository or deploy this app.
+The user deployed commit `f32f764` as a Docker web service on Render Free. The public URL is **https://weather-aware-truck-routing-app.onrender.com/**. Hosted synthetic smoke and desktop/mobile interaction checks passed. The hosted live smoke currently fails its forecast-completeness assertion because Open-Meteo returns a rate limit; do not describe live weather as verified until a later check succeeds. The service may cold-start after inactivity. Current documentation edits are local until committed/pushed.
 
 ## Known limits
 

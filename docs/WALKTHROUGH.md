@@ -1,6 +1,52 @@
 # Loom walkthrough · approximately 8 minutes
 
-Record this yourself after deployment or use the local app. Never imply the demo is live. If the cloud network is still blocked, say that clearly and show the demo plus test evidence; run live verification once access is fixed before claiming a successful live trip.
+Record yourself after deployment, or use the local app while hosting is being prepared. Keep live and synthetic data clearly identified. Only claim successful provider/deployment checks that you actually performed.
+
+## Five-minute recording for Loom Starter
+
+Loom's [current Starter plan](https://www.atlassian.com/software/loom/pricing) has a five-minute recording limit. Unless the interviewer specifies a different length, aim for **4 minutes 40 seconds**. The longer outline below is available if your plan and assessment instructions allow it.
+
+Before recording, open the deployed application, verify a near-term Chicago–Detroit live trip, and prepare your terminal's actual test output. Keep the app URL visible. Use screen and microphone; include your camera if requested. Start with the site already loaded so a hosting cold start does not consume recording time.
+
+Current deployed URL: **https://weather-aware-truck-routing-app.onrender.com/**. Hosted health, assets, synthetic smoke and desktop/mobile demo checks pass. Hosted Open-Meteo weather was rate-limited during validation; live geocoding/routing worked, but both routes had unknown forecasts and no recommendation.
+
+Prefer resolving that access issue before the final recording. If it persists and the assessment permits a disclosed demo, say: “The application is deployed on Render. Live geocoding and routing work, but the weather provider is currently rate-limiting this deployment. The app shows unknown weather and withholds recommendations. I'll switch to the explicitly labeled synthetic demo to demonstrate the remaining interactions.” Then use the demo for weather/ranking/timeline explanations. Do not describe its forecasts as live. Local live checks succeeded earlier; that does not establish hosted weather readiness.
+
+| Time | Action and narration |
+|---|---|
+| 0:00–0:25 | “Hi, I'm Zumar. This is Waycast, my Weather-Aware Truck Routing application. It compares alternative routes using forecast weather at each checkpoint's estimated arrival time.” Show the deployed URL. |
+| 0:25–1:15 | In Live routes, search/select Chicago and Detroit, choose a departure about one hour ahead with the displayed timezone, 32,000 lb and 25-mile spacing. Compare. “The backend gets real OSRM routes and Open-Meteo forecasts. The provider may return fewer than three alternatives; the app shows what it actually receives.” |
+| 1:15–2:00 | Select another route, click a weather checkpoint and open the checkpoint table. “These popups show estimated arrival, wind, rain, snow and the reasons behind the risk category. Checkpoints use edge travel times. Missing weather remains unknown.” |
+| 2:00–2:40 | Show route cards and the risk guide. “Each segment uses the higher risk of its endpoint checkpoints. Routes without No Travel or forecast gaps are ranked by Severe miles, High miles, distance-weighted average risk, then duration. Load changes the wind thresholds.” Change load and point out the stale-results message. |
+| 2:40–3:15 | Scrub the corridor timeline and toggle layers. “This separate grid contains 49 hourly forecast snapshots. Changing it updates the map locally without changing the arrival-time recommendation or requesting new forecasts.” |
+| 3:15–3:40 | Show the mobile layout and one validation message. If using the demo for risk variation, explicitly point out its synthetic label. |
+| 3:40–4:20 | Briefly show the source structure and current successful test/build output. “React and TypeScript handle the interface; Django handles validation and orchestration. Provider access, route geometry and risk rules are separate modules. Regression tests cover thresholds, provider errors, cancellation, map interactions and boundary cases.” State test counts only if they match your current output. |
+| 4:20–4:40 | “The project is deployed at this URL. The repository includes setup and deployment instructions. This is a planning aid: OSRM's driving profile does not enforce truck road restrictions, and the forecasts do not establish road safety. Thank you.” |
+
+After recording, use Loom's [sharing settings](https://support.atlassian.com/loom/docs/share-your-recording/) to allow the interviewer to view it. If appropriate, choose **Anyone with the link**, then verify the copied link in a signed-out/private browser. Verify the hosted app and GitHub access the same way.
+
+Suggested submission text (replace placeholders before sending):
+
+> Hi [Interviewer name],
+>
+> I've completed my Weather-Aware Truck Routing assessment, Waycast.
+>
+> Hosted application: https://weather-aware-truck-routing-app.onrender.com/
+>
+> Source code: https://github.com/zumarzehgeer/weather-aware-truck-routing-app
+>
+> Loom walkthrough: [recording URL]
+>
+> The README covers local setup, architecture, provider limitations and validation.
+>
+> Best,
+> Zumar
+
+If using Render Free, add: “The application may take about a minute to start after inactivity.” Its [free service documentation](https://render.com/docs/free) describes this behavior.
+
+If hosted weather is still rate-limited when submitting, also disclose: “Live geocoding/routing is available, but the hosted weather provider is currently rate-limiting requests. The app displays unknown forecasts rather than recommending an incompletely evaluated route; the labeled synthetic demo remains available.” Remove this note only after confirming a successful hosted live-weather check.
+
+## Longer recording outline
 
 | Time | Screen / action | Suggested narration |
 |---|---|---|
