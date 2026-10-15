@@ -48,6 +48,7 @@ function Guide({ onClose }: { onClose: () => void }) {
 export default function App() {
   const [origin, setOrigin] = useState<Place | null>(chicago)
   const [destination, setDestination] = useState<Place | null>(detroit)
+  const [placeRevision, setPlaceRevision] = useState(0)
   const [zone, setZone] = useState('America/Chicago')
   const [departure, setDeparture] = useState(() => localDate('America/Chicago'))
   const [load, setLoad] = useState('32000')
@@ -94,8 +95,8 @@ export default function App() {
           <div className="mode-switch" aria-label="Data mode"><button type="button" className={!demo ? 'active' : ''} onClick={() => { setDemo(false); changed() }} disabled={loading}>Live routes</button><button type="button" className={demo ? 'active' : ''} onClick={() => { setDemo(true); setOrigin(chicago); setDestination(detroit); changed() }} disabled={loading || !demoEnabled}>Demo trip<Sparkles size={12} /></button></div>
           {demo && <p className="demo-form-note">Synthetic Chicago → Detroit example.<br />No live routing or weather is used.</p>}
           <form onSubmit={e => { e.preventDefault(); compare() }} noValidate>
-            <div className="places"><PlaceSearch id="origin" label="Origin" place={origin} onChange={p => { setOrigin(p); changed() }} disabled={demo || loading} /><button type="button" className="swap-button" aria-label="Swap origin and destination" disabled={demo || loading} onClick={() => { setOrigin(destination); setDestination(origin); changed() }}><ArrowDownUp size={14} /></button>
-              <PlaceSearch id="destination" label="Destination" place={destination} onChange={p => { setDestination(p); changed() }} disabled={demo || loading} /></div>
+            <div className="places"><PlaceSearch key={`origin-${placeRevision}`} id="origin" label="Origin" place={origin} onChange={p => { setOrigin(p); changed() }} disabled={demo || loading} /><button type="button" className="swap-button" aria-label="Swap origin and destination" disabled={demo || loading} onClick={() => { setOrigin(destination); setDestination(origin); setPlaceRevision(n => n + 1); changed() }}><ArrowDownUp size={14} /></button>
+              <PlaceSearch key={`destination-${placeRevision}`} id="destination" label="Destination" place={destination} onChange={p => { setDestination(p); changed() }} disabled={demo || loading} /></div>
             <p className="field-hint">City & town search · not street addresses</p>
             <div className="form-divider" />
             <label htmlFor="departure"><CalendarDays size={14} />Departure date & time</label><input type="datetime-local" id="departure" value={departure} onChange={e => { setDeparture(e.target.value); changed() }} disabled={loading} required />
@@ -113,7 +114,7 @@ export default function App() {
         <div className="results-column" ref={resultsRef}>
           {plan?.mode === 'demo' && <div className="demo-banner"><Sparkles size={15} /><span><strong>Demo mode</strong> · Synthetic routes and forecasts for interaction testing. Not a live trip.</span></div>}
           {dirty && plan && <div className="stale-banner" role="status"><Info size={16} />Inputs changed. Map and results still show the last evaluated trip. Compare again to update.</div>}
-          <TripMap plan={plan} selected={selected} onSelect={setSelected} hour={hour} zone={displayZone} loading={loading} onDemo={() => { if (demoEnabled) compare(true) }} />
+          <TripMap plan={plan} selected={selected} onSelect={setSelected} hour={hour} zone={displayZone} loading={loading} demoEnabled={demoEnabled} onDemo={() => { if (demoEnabled) compare(true) }} />
           <section className={`forecast-panel ${!plan ? 'disabled' : ''}`} aria-label="Corridor forecast"><div className="forecast-heading"><div className="forecast-title"><span className="section-icon"><CloudSun size={19} /></span><div><h2>Weather along the corridor</h2><p>Hourly snapshot · independent of your arrival-time analysis</p></div></div><div className="forecast-time"><span>FORECAST AT</span><strong>{plan ? displayTime(plan.corridor.timestamps[hour], displayZone, true) : 'Plan a trip to explore'}</strong></div></div>
             <div className="slider-row"><span>+{hour}h</span><input aria-label="Forecast hour" type="range" min="0" max="48" step="1" value={hour} disabled={!plan} onChange={e => setHour(Number(e.target.value))} /><span>48h</span></div>
             <div className="slider-ticks"><span>Next full hour</span><span>+12h</span><span>+24h</span><span>+36h</span><span>+48h</span></div>

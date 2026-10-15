@@ -2,11 +2,11 @@
 
 A React + Django assessment application for comparing route weather exposure at a truck’s estimated arrival times. The map shows every available alternative, weather checkpoints, and a separate 0–48-hour forecast corridor.
 
-**Status:** live OSRM/Open-Meteo routing, city search, arrival forecasts and forecast-slider interactions have now been verified in this instance. The configured CARTO basemap returns API-key-required placeholder images; this is an open P1 issue. Nine earlier review findings also remain open. See the [latest review](docs/CODE_REVIEW_FOURTH_PASS.md) and [validation](docs/VALIDATION.md). No public deployment, submission or employer contact has been made.
+**Status:** the original ten review findings have been repaired, along with additional input/date and concurrent-provider boundaries found during the local review loop. The basemap now uses OpenStreetMap standard tiles. See the [repair review](docs/CODE_REVIEW_FIXES.md) and [current validation](docs/VALIDATION.md) for evidence and limitations. No public deployment, submission or employer contact has been made.
 
 ## Run locally
 
-Requires **Python 3.12**, **Node 24**, and npm. No database server is needed. The public non-commercial routing, city-search and weather adapters require no API key. The current CARTO basemap does require a key and has not been configured with one; fix provider access or select a suitable alternative before treating the map as complete.
+Requires **Python 3.12**, **Node 24**, and npm. No database server is needed. The public non-commercial routing, city-search and weather adapters and the standard OpenStreetMap basemap require no API key. Provider usage policies still apply.
 
 ```bash
 bash scripts/setup.sh
@@ -16,6 +16,21 @@ bash scripts/dev.sh
 ```
 
 Open the Vite development server on port **5173**. It proxies `/api` to Django on **8000**. `setup.sh` uses the committed Python version pins and npm lockfile, builds the frontend, and collects static files. It can be rerun. Django and the Docker image do not auto-load `.env`; `dev.sh` loads it, and deployments inject environment variables.
+
+For native Windows PowerShell, use the virtual environment's `Scripts` directory and `npm.cmd` (avoids PowerShell's script execution policy):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Set-Location frontend
+npm.cmd ci
+npm.cmd run build
+Set-Location ..
+.\.venv\Scripts\python.exe backend/manage.py collectstatic --noinput
+.\.venv\Scripts\python.exe backend/manage.py runserver 127.0.0.1:8000 --noreload
+```
+
+This serves the built app at **http://127.0.0.1:8000**. Set local configuration through PowerShell environment variables; this command does not load `.env`. For hot reload, run `npm.cmd run dev` in a second terminal inside `frontend` and open port **5173**.
 
 Choose **Live routes** and select cities from search, or click **Explore the demo**. The demo always uses synthetic Chicago–Detroit paths and forecasts, with conspicuous labels. It never replaces failed live API calls. In demo mode, endpoints are fixed; departure, load, and checkpoint spacing remain interactive. The route comparison displays the evaluated inputs, so changing a form value cannot silently relabel older results.
 
@@ -61,8 +76,8 @@ No persistence or authentication is needed. Cache entries and rate budgets are i
 |---|---|---|
 | Routing | [OSRM Route API](https://project-osrm.org/docs/v5.24.0/api/#route-service), public `router.project-osrm.org` | Requests `alternatives=3`, full GeoJSON and distance/duration edge annotations; retains at most three unique paths. This asks for alternatives beyond the primary route, so up to four provider results may arrive; only the first three distinct ones are shown. Cached 24h. Public demo has no SLA; requests serialized to at most one/second in this single worker. |
 | Place search | [Open-Meteo Geocoding](https://open-meteo.com/en/docs/geocoding-api), GeoNames | City/town search, six results, 400ms debounce, cached 24h. Does not promise street-address geocoding. |
-| Weather | [Open-Meteo Forecast API](https://open-meteo.com/en/docs) | Seven UTC forecast days, four hourly variables, 40 locations/batch, up to three concurrent batches. Cached 30m by coordinates rounded to 0.001°. Missing cells/fields stay unknown. |
-| Basemap | CARTO dark tiles / OpenStreetMap | Current URL lacks CARTO's now-required API key and returns HTTP 200 placeholder PNGs. The `tileerror` fallback cannot detect this. Configure permitted provider access or choose a suitable alternative; see the open P1 review finding. |
+| Weather | [Open-Meteo Forecast API](https://open-meteo.com/en/docs) | Seven UTC forecast days, four hourly variables, 40 locations/batch, at most three concurrent outbound batches across all evaluations in one process. Cached 30m by coordinates rounded to 0.001°. Missing cells/fields stay unknown. |
+| Basemap | [OpenStreetMap standard tiles](https://operations.osmfoundation.org/policies/tiles/) | HTTPS browser tiles with visible OSM attribution, normal HTTP caching and an explicit cross-origin referrer policy. Interactive viewing only; no prefetch, bulk download or offline feature. Best-effort service without an SLA; use an appropriate contracted/self-hosted provider for larger deployments. |
 
 Official Open-Meteo documentation and terms were checked through the provider’s [website source](https://github.com/open-meteo/open-meteo-website) and [API source README](https://github.com/open-meteo/open-meteo). The free service is **non-commercial**, with published limits of **600 calls/minute, 5,000/hour, and 10,000/day**, without an SLA. Batching does not turn multiple locations into one quota unit. The app reserves location-based budgets of 500/minute, 4,500/hour, and 9,000/day, with limits of 220 unique forecast locations/plan, 1,600 miles/alternative, eight trip evaluations/minute/client and 30 searches/minute/client. Cache expiry, restarts, other applications on the same IP, and provider accounting can still cause rate limits; they are handled explicitly. Per-client limiting uses `REMOTE_ADDR`, so a reverse proxy may conservatively share that limit across clients. Do not trust arbitrary forwarded IP headers to bypass it.
 
@@ -122,7 +137,7 @@ Validation/provider errors use `{ "error": { "code": "...", "message": "..." } }
 
 ## Environment variables
 
-See [.env.example](.env.example). The public non-commercial routing, geocoding and weather adapters require no credentials. Basemap access remains unconfigured: CARTO requires a key for the current URL. Follow the selected provider's rules for any browser-visible access key; keep secret credentials on the server and out of `VITE_*` variables.
+See [.env.example](.env.example). The current providers require no credentials for this assessment workflow. Follow their usage policies. If switching providers, follow the selected provider's rules for any browser-visible access key; keep secret credentials on the server and out of `VITE_*` variables.
 
 | Variable | Purpose |
 |---|---|
@@ -142,12 +157,15 @@ See [.env.example](.env.example). The public non-commercial routing, geocoding a
 ```bash
 .venv/bin/pytest -q
 (cd frontend && npm run build)
+(cd frontend && npm run test:unit)
 .venv/bin/python backend/manage.py collectstatic --noinput
 .venv/bin/python backend/manage.py check
 (cd frontend && npx playwright install --with-deps chromium && npm run test:e2e)
 ```
 
 If Chromium is already installed, skip its download and run `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e` inside `frontend`. Playwright starts a fresh Django server on 8000, so stop your development server first. Tests use the real Django demo endpoint plus explicitly intercepted failure fixtures; they do not consume live weather quotas. Desktop and mobile suites cover route selection, real map checkpoint popups, layer toggles, slider updates without API calls, guide modal, mobile overflow, search keyboard selection, validation, loading, errors, missing forecasts and No Travel messages.
+
+On Windows, backend tests use `.\.venv\Scripts\python.exe -m pytest -q`. Inside `frontend`, run `npm.cmd run test:unit`, `npx.cmd playwright install chromium`, and `npm.cmd run test:e2e`; Playwright selects the platform's Python path automatically. Unit tests verify request cancellation/deadlines, response-body deadlines, cleanup and duration rounding. Browser tests also cover both endpoint popups, unresolved-place swapping and disabled demo entry points. Automated browser runs abort basemap requests; actual tile content was verified separately.
 
 Backend tests cover every supplied threshold/load boundary, unit conversion, numerical conversion boundaries, annotation-based ETAs, endpoint/remainder sampling, weighted aggregation, each ranking priority, unknown/No Travel exclusion, DST validation, malformed inputs, provider timeout/rate limit/malformed responses, cache reuse and fewer-route disclosure. See [validation evidence and remaining checks](docs/VALIDATION.md).
 
@@ -163,4 +181,4 @@ No usable configured hosting account/destination was provided, so no public appl
 - Forecast intervals, coarse corridor cells, point sampling and this supplied risk model are approximations. Gusts, ice, visibility, flooding, terrain exposure, traffic, restrictions and driver hours are not modeled.
 - City endpoints may snap to nearby public roads; no truck stop/address precision is promised.
 - Single-worker memory caches and budgets are intentionally simple and reset on restart. There is no durable quota ledger, distributed cache, or production abuse protection.
-- The current-instance network allowlist is active, and a live Chicago–Detroit trip was validated. The basemap still fails because CARTO serves key-required placeholders. Automated fixture tests do not establish that basemap content is usable; see the latest live/visual review evidence.
+- Provider access depends on the local or deployment network. A live Chicago–Detroit trip and a geographic OpenStreetMap tile were verified during local repair validation. Automated fixture tests alone do not establish provider readiness; see the current validation record.

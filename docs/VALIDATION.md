@@ -1,8 +1,29 @@
 # Validation record
 
-Run on **15 October 2026** in the managed cloud environment. Source was built from an empty repository; no pre-existing application files were replaced. No public deployment, commit/push, employer contact or submission was performed.
+## Current local repair validation · 15 October 2026
 
-Latest update: the [fourth review](CODE_REVIEW_FOURTH_PASS.md) verified live APIs after network access became active, but found that CARTO's default basemap serves API-key-required placeholders. Ten code-review findings remain open; the map is not ready for delivery.
+The original ten findings have been repaired. The [repair review](CODE_REVIEW_FIXES.md) records the review loop and additional boundary/concurrency fixes. Current checks ran on native Windows with **Python 3.13.14**, **Node 24.18.0** and Playwright Chromium. Python 3.12 remains the CI/container target; it was not installed locally. These results supersede the open-finding status below; earlier evidence is retained as history.
+
+| Current check | Actual result |
+|---|---|
+| Backend tests | **120 passed**, including provider shapes, numeric/date limits, shared concurrency, boundary grids and UTC forecast lookup. |
+| Frontend unit tests | **6 passed**: caller cancellation, deadlines with caller signal, already-aborted calls, response-body timeout, cleanup and duration rounding. |
+| TypeScript / Vite build | **Passed**. |
+| Django system check / collected assets | **Passed**. |
+| Desktop/mobile Playwright | **12 passed**, including real clicks on both endpoint checkpoints, location swap and disabled demo controls. Tiles are deliberately aborted. |
+| Synthetic smoke | **Passed**: three routes, complete arrival forecasts, 49 corridor frames. |
+| Live smoke | **Passed**: real geocoding, two OSRM route alternatives, complete Open-Meteo arrival forecasts, 49 corridor frames; recommendation `r1`. TLS verification retained. |
+| Actual basemap content | One standard OSM tile (`7/33/47`) fetched with TLS verification and identifying User-Agent/Referer; HTTP 200 PNG, 26,062 bytes. Visually inspected: roads, cities and Lake Michigan, with no key-required placeholder. SHA-256 `def2428ee6bc749466d965e9b2685e894502e9988c8a0efb80736f1e4a14350b`. No bulk download. |
+| Docker | **Not rerun**: local Docker engine is not running. |
+| Public hosting / recording / submission | **Not performed**. |
+
+Initial browser rerun had a popup assertion race while Leaflet's prior popup faded out; assertions now wait for removal. The subsequent full run passed. Dependencies were installed with TLS verification; no application secrets or generated assets are committed.
+
+## Historical cloud validation
+
+Run on **15 October 2026** in the previous managed cloud environment. Source was built from an empty repository; no pre-existing application files were replaced. No public deployment, commit/push, employer contact or submission was performed during those checks.
+
+The [fourth review](CODE_REVIEW_FOURTH_PASS.md) verified live APIs after network access became active, but found that CARTO's default basemap served API-key-required placeholders. Its ten findings were open at that time and are repaired by the current local changes.
 
 | Check | Actual result |
 |---|---|
@@ -47,8 +68,7 @@ Separately, the fourth pass exercised actual live APIs and desktop/mobile intera
 
 ## Remaining actions
 
-1. Fix the CARTO basemap access/configuration issue and the other open review findings, add targeted regressions, and repeat live/visual validation. Network access is now active; the previous provider-network blocker has been cleared in this instance.
-2. Review/save the reusable install/start instructions and publish the prepared environment when satisfied. Publication/new-task restoration has not been validated here.
-3. Commit/push the application to the intended branch and deploy using [DEPLOYMENT.md](DEPLOYMENT.md) on your own approved hosting account. No paid provisioning is authorized or performed.
-4. Run `python3 scripts/smoke.py --base-url https://YOUR-HOST --live`, exercise the deployed map, then add the real HTTPS URL and results here.
-5. Record the [walkthrough](WALKTHROUGH.md), accurately distinguishing live and synthetic data, before you submit the assessment yourself.
+1. Commit/push the reviewed local repairs when ready. Current changes have not been committed or pushed.
+2. Recheck Docker and the Python 3.12 CI target, then deploy using [DEPLOYMENT.md](DEPLOYMENT.md) on your own hosting account.
+3. Run `python3 scripts/smoke.py --base-url https://YOUR-HOST --live`, exercise the deployed map, then add the actual HTTPS URL and results here.
+4. Record the [walkthrough](WALKTHROUGH.md), accurately distinguishing live and synthetic data, before submitting the assessment.

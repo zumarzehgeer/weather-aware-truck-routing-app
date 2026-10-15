@@ -19,7 +19,7 @@ def build_plan(origin, destination, departure, load, spacing, demo=False):
     try:
         sampled = [sample_route(r, spacing, departure) for r in raw_routes]
         cells = corridor_cells(raw_routes, departure)
-    except ValueError as exc:
+    except (ValueError, OverflowError) as exc:
         raise ProviderError('Routing service returned invalid edge timing or geometry.') from exc
     locations = [p['coordinate'] for route in sampled for p in route] + [c['coordinate'] for c in cells]
     if len({location_key(c) for c in locations}) > 220:

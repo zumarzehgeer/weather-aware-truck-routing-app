@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
   // Offline-independent E2E: basemap failures are tested separately. No live-provider quotas consumed.
-  await page.route('https://basemaps.cartocdn.com/**', route => route.abort())
+  await page.route('https://tile.openstreetmap.org/**', route => route.abort())
 })
 
 test('demo: route selection, checkpoint popup, forecast slider, guide, mobile layout', async ({ page }, info) => {
@@ -23,6 +23,16 @@ test('demo: route selection, checkpoint popup, forecast slider, guide, mobile la
   await expect(page.locator('.weather-popup')).toContainText('ROUTE B · CHECKPOINT 3')
   await expect(page.locator('.weather-popup')).toContainText('in/h')
   await page.locator('.leaflet-popup-close-button').click()
+  await expect(page.locator('.weather-popup')).toHaveCount(0)
+  for (const endpoint of ['first', 'last'] as const) {
+    await page.getByRole('button', { name: 'Fit all routes' }).click()
+    const point = endpoint === 'first' ? page.locator('.weather-checkpoint').first() : page.locator('.weather-checkpoint').last()
+    await point.click()
+    await expect(page.locator('.weather-popup')).toContainText('ROUTE B · CHECKPOINT')
+    await expect(page.locator('.weather-popup')).toContainText('ETA')
+    await page.locator('.leaflet-popup-close-button').click()
+    await expect(page.locator('.weather-popup')).toHaveCount(0)
+  }
   let calls = 0
   page.on('request', request => { if (request.url().includes('/api/')) calls++ })
   const oldTimestamp = await page.locator('.forecast-time strong').innerText()
@@ -106,4 +116,29 @@ test('empty city search and request failures are visible', async ({ page }) => {
   await page.route('**/api/geocode*', route => route.fulfill({ status: 502, json: { error: { message: 'Place search is unavailable. Check provider access.' } } }))
   await page.getByLabel('Origin', { exact: true }).fill('Chicago')
   await expect(page.getByText('Place search is unavailable. Check provider access.')).toBeVisible()
+})
+
+test('swapping clears unresolved text and preserves selected locations', async ({ page }) => {
+  await page.route('**/api/geocode*', route => route.fulfill({ json: { results: [] } }))
+  await page.goto('/')
+  const origin = page.getByLabel('Origin', { exact: true })
+  const destination = page.getByLabel('Destination', { exact: true })
+  await origin.fill('Unresolved city')
+  await page.getByRole('button', { name: 'Swap origin and destination' }).click()
+  await expect(origin).toHaveValue('Detroit, Michigan, United States')
+  await expect(destination).toHaveValue('')
+  await page.getByRole('button', { name: 'Compare routes', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Select an origin and destination')
+  await page.getByRole('button', { name: 'Swap origin and destination' }).click()
+  await expect(origin).toHaveValue('')
+  await expect(destination).toHaveValue('Detroit, Michigan, United States')
+  await origin.fill('Still typing')
+  await expect(origin).toHaveValue('Still typing')
+})
+
+test('all demo entry points are disabled when the server disables demo', async ({ page }) => {
+  await page.route('**/api/health', route => route.fulfill({ json: { status: 'ok', demo_enabled: false } }))
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Demo trip' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Explore the demo' })).toBeDisabled()
 })

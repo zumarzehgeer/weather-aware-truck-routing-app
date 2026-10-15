@@ -21,7 +21,7 @@ def sample_route(route, spacing_miles, departure):
     if any(not math.isfinite(x) or x < 0 for x in distances + durations):
         raise ValueError('Invalid routing annotations')
     distance_sum, duration_sum = sum(distances), sum(durations)
-    if distance_sum <= 0 or duration_sum <= 0:
+    if not math.isfinite(distance_sum) or not math.isfinite(duration_sum) or distance_sum <= 0 or duration_sum <= 0:
         raise ValueError('Route has no measurable distance or duration')
     # Normalize annotation rounding to the provider's route totals.
     dscale, tscale = route['distance_meters']/distance_sum, route['duration_seconds']/duration_sum
@@ -56,14 +56,15 @@ def corridor_cells(routes, departure):
     lon_step = lat_step/max(0.2, math.cos(math.radians(mid_lat)))
     cells = {}
     for lon, lat in points:
-        cx, cy = math.floor(lon/lon_step), math.floor(lat/lat_step)
+        cx, cy = grid_index(lon, lon_step, 180), grid_index(lat, lat_step, 85)
         for dx, dy in [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]:
             x, y = cx+dx, cy+dy
-            center = [(x+0.5)*lon_step, (y+0.5)*lat_step]
-            if not -85 <= center[1] <= 85 or not -180 <= center[0] <= 180:
+            cell = grid_cell(x, y, lon_step, lat_step)
+            if cell is None:
                 continue
+            center = cell['coordinate']
             if min(haversine(center,p) for p in points) <= 42000:
-                cells[(x,y)] = {'coordinate': center, 'bounds': [[y*lat_step,x*lon_step],[(y+1)*lat_step,(x+1)*lon_step]]}
+                cells[(x,y)] = cell
     # Expand grid for long trips; recompute rather than discard parts of the corridor.
     if len(cells) > 64:
         factor = math.ceil(len(cells)/64)**0.5
@@ -80,7 +81,28 @@ def coarse_corridor(points, factor):
     lon_step = lat_step/max(0.2, math.cos(math.radians(sum(p[1] for p in points)/len(points))))
     cells = {}
     for lon, lat in points:
-        x,y = math.floor(lon/lon_step),math.floor(lat/lat_step)
-        cells[(x,y)] = {'coordinate': [(x+0.5)*lon_step,(y+0.5)*lat_step],
-                        'bounds': [[y*lat_step,x*lon_step],[(y+1)*lat_step,(x+1)*lon_step]]}
+        x, y = grid_index(lon, lon_step, 180), grid_index(lat, lat_step, 85)
+        cell = grid_cell(x, y, lon_step, lat_step)
+        if cell is not None:
+            cells[(x,y)] = cell
     return list(cells.values())
+
+
+def grid_index(value, step, extent):
+    # Choose the interior cell at exact extent edges, away from rounding slivers.
+    return math.floor(max(-extent+1e-9, min(extent-1e-9, value))/step)
+
+
+def grid_cell(x, y, lon_step, lat_step):
+    """Clip edge cells to the supported extent and sample their actual center."""
+    west, east = max(-180, x*lon_step), min(180, (x+1)*lon_step)
+    south, north = max(-85, y*lat_step), min(85, (y+1)*lat_step)
+    # Grid multiplication can create a sub-ulp sliver at an exact extent edge.
+    west = -180 if abs(west+180) < 1e-10 else west
+    east = 180 if abs(east-180) < 1e-10 else east
+    south = -85 if abs(south+85) < 1e-10 else south
+    north = 85 if abs(north-85) < 1e-10 else north
+    if east-west < 1e-10 or north-south < 1e-10:
+        return None
+    return {'coordinate': [(west+east)/2, (south+north)/2],
+            'bounds': [[south, west], [north, east]]}

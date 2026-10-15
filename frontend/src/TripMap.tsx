@@ -29,20 +29,20 @@ function FitMap({ plan }: { plan: Plan | null }) {
   return null
 }
 
-const Corridor = memo(function Corridor({ plan, hour, visible }: { plan: Plan; hour: number; visible: boolean }) {
+const Corridor = memo(function Corridor({ plan, hour, visible, zone }: { plan: Plan; hour: number; visible: boolean; zone: string }) {
   return <LayerPane name="forecast-corridor" zIndex={350} visible={visible}>{plan.corridor.cells.map((cell, i) => {
     const snapshot = cell.forecasts[hour]
     return <Rectangle key={i} className="forecast-cell" bounds={cell.bounds} pathOptions={{ stroke: false, fillColor: riskColors[snapshot.risk.label], fillOpacity: 0.3 }}>
       <Popup><div className="weather-popup"><span className="popup-eyebrow">CORRIDOR FORECAST · SNAPSHOT</span><strong>{snapshot.risk.label}</strong>
-        <p>{new Date(plan.corridor.timestamps[hour]).toUTCString()}</p>
+        <p>{displayTime(plan.corridor.timestamps[hour], zone, true)}</p>
         <span>Wind {value(snapshot.weather?.wind_mph)} mph · Rain {value(snapshot.weather?.rain_in, 2)} in/h · Snow {value(snapshot.weather?.snow_in, 2)} in/h</span>
         <small>Cell-center forecast; not arrival-time analysis.</small></div></Popup>
     </Rectangle>
   })}</LayerPane>
 })
 
-export function TripMap({ plan, selected, onSelect, hour, zone, loading, onDemo }: {
-  plan: Plan | null; selected: string | null; onSelect: (id: string) => void; hour: number; zone: string; loading: boolean; onDemo: () => void
+export function TripMap({ plan, selected, onSelect, hour, zone, loading, demoEnabled, onDemo }: {
+  plan: Plan | null; selected: string | null; onSelect: (id: string) => void; hour: number; zone: string; loading: boolean; demoEnabled: boolean; onDemo: () => void
 }) {
   const [heatmap, setHeatmap] = useState(true)
   const [checkpoints, setCheckpoints] = useState(true)
@@ -57,11 +57,12 @@ export function TripMap({ plan, selected, onSelect, hour, zone, loading, onDemo 
       <span className="map-label">{plan?.mode === 'demo' ? 'DEMO DATA' : 'WEATHER + ROUTES'}</span></div>
     <div className="map-body">
       <MapContainer ref={map} center={[41.9, -85.2]} zoom={7} zoomControl={false} scrollWheelZoom={false} className="trip-map" attributionControl>
-        <TileLayer url="https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png" maxZoom={19}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19}
+          referrerPolicy="strict-origin-when-cross-origin"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           eventHandlers={{ tileerror: () => setTileError(true) }} />
         <ZoomControl position="bottomright" /><FitMap plan={plan} />
-        {plan && <Corridor plan={plan} hour={hour} visible={heatmap} />}
+        {plan && <Corridor plan={plan} hour={hour} visible={heatmap} zone={zone} />}
         {sorted.map(route => {
           const index = plan!.routes.findIndex(r => r.id === route.id)
           const positions = routePositions[route.id]
@@ -84,13 +85,13 @@ export function TripMap({ plan, selected, onSelect, hour, zone, loading, onDemo 
             <small>Hourly forecast: {point.weather ? displayTime(point.weather.time, zone, true) : 'Unavailable'}. Risk uses your trip’s arrival time and load.</small>
           </div></Popup>
         </CircleMarker>)}</Pane>}
-        {plan && <Pane name="endpoints" style={{ zIndex: 470 }}>{[plan.origin, plan.destination].map((place, i) => <CircleMarker key={i} center={[place.latitude, place.longitude]} radius={9}
+        {plan && <Pane name="endpoints" style={{ zIndex: 450, pointerEvents: 'none' }}>{[plan.origin, plan.destination].map((place, i) => <CircleMarker key={i} interactive={false} center={[place.latitude, place.longitude]} radius={9}
           pathOptions={{ color: '#fff', weight: 3, fillColor: i ? '#203d44' : '#309d87', fillOpacity: 1 }}><Tooltip permanent direction={i ? 'right' : 'left'} className="endpoint-label">{place.name.split(',')[0]}</Tooltip></CircleMarker>)}</Pane>}
       </MapContainer>
       {plan && <div className="layer-controls"><button type="button" aria-pressed={heatmap} onClick={() => setHeatmap(!heatmap)}><Layers size={15} />Forecast layer<span className={`mini-toggle ${heatmap ? 'on' : ''}`} /></button>
         <button type="button" aria-pressed={checkpoints} onClick={() => setCheckpoints(!checkpoints)}><MapPin size={15} />Checkpoints<span className={`mini-toggle ${checkpoints ? 'on' : ''}`} /></button>
         <button type="button" className="fit-button" aria-label="Fit all routes" onClick={() => { if (map.current && plan) map.current.fitBounds(L.latLngBounds(plan.routes.flatMap(r => r.geometry.map(([lon, lat]) => L.latLng(lat, lon)))), { padding: [48, 48] }) }}><Expand size={16} /></button></div>}
-      {!plan && !loading && <div className="map-empty"><span className="map-empty-icon"><MapPin size={26} /></span><h2>Every mile, a little more informed.</h2><p>Compare the weather ahead, find your best route,<br />and know what to expect along the way.</p><button type="button" onClick={onDemo}>Explore the demo <span>↗</span></button></div>}
+      {!plan && !loading && <div className="map-empty"><span className="map-empty-icon"><MapPin size={26} /></span><h2>Every mile, a little more informed.</h2><p>Compare the weather ahead, find your best route,<br />and know what to expect along the way.</p><button type="button" disabled={!demoEnabled} onClick={onDemo}>Explore the demo <span>↗</span></button></div>}
       {loading && <div className="map-loading"><span className="loading-ring" /><strong>Looking down the road…</strong><p>Finding routes and checking forecasts along your trip.</p></div>}
       {tileError && <div className="tile-notice">Basemap unavailable. Route geometry and forecast overlays remain usable.</div>}
       {plan && <div className="map-scale-note">{heatmap ? 'Corridor colors: hourly weather + load risk' : 'Forecast layer hidden'}<br /><span>Route dots: arrival-time risk · Selected route only</span></div>}

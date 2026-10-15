@@ -58,12 +58,12 @@ def validate(data):
             raise ValueError(f'{name} must be selected from place search.')
         for field,limit in [('latitude',85),('longitude',180)]:
             value=place.get(field)
-            if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or abs(value)>limit:
+            if isinstance(value,bool) or not isinstance(value,(int,float)) or not -limit<=value<=limit or not math.isfinite(value):
                 raise ValueError(f'{name} has an invalid {field}. Supported latitude is ±85°.')
     if origin['latitude']==destination['latitude'] and origin['longitude']==destination['longitude']:
         raise ValueError('Choose different origin and destination places.')
     load=data.get('load_lb')
-    if isinstance(load,bool) or not isinstance(load,(int,float)) or not math.isfinite(load) or not 0<=load<=120000:
+    if isinstance(load,bool) or not isinstance(load,(int,float)) or not 0<=load<=120000 or not math.isfinite(load):
         raise ValueError('Load must be between 0 and 120,000 lb.')
     spacing=data.get('spacing_miles')
     if isinstance(spacing,bool) or spacing not in (10,25,50):
@@ -81,7 +81,7 @@ def validate(data):
         if aware.utcoffset()!=local.replace(tzinfo=zone,fold=1).utcoffset():
             raise ValueError('This departure time is repeated when clocks move back. Choose a time outside the repeated hour.')
         departure=aware.astimezone(timezone.utc)
-    except (ZoneInfoNotFoundError,TypeError,KeyError) as exc:
+    except (ZoneInfoNotFoundError,TypeError,KeyError,OverflowError) as exc:
         raise ValueError('Provide a valid local departure time and IANA timezone.') from exc
     now=datetime.now(timezone.utc)
     if departure < now-timedelta(minutes=5):
@@ -98,7 +98,7 @@ def plan(request):
     try:
         data=json.loads(request.body)
         args=validate(data)
-    except (json.JSONDecodeError,ValueError,UnicodeDecodeError) as exc:
+    except (json.JSONDecodeError,ValueError,UnicodeDecodeError,RecursionError) as exc:
         return error(str(exc))
     demo=data.get('demo',False)
     if demo and not settings.ENABLE_DEMO:

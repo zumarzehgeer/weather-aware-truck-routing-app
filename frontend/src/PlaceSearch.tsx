@@ -34,12 +34,12 @@ export function PlaceSearch({ label, place, onChange, disabled, id }: {
       aria-expanded={open && results.length > 0} aria-controls={`${id}-results`} aria-activedescendant={active >= 0 ? `${id}-${active}` : undefined}
       placeholder="Search a city or town" value={query} disabled={disabled}
       onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}
-      onChange={e => { setQuery(e.target.value); onChange(null); setOpen(true); setResults([]); setError('') }}
+      onChange={e => { setQuery(e.target.value); onChange(null); setOpen(true); setResults([]); setActive(-1); setError('') }}
       onKeyDown={e => {
         if (e.key === 'Escape') setOpen(false)
         if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(results.length - 1, active + 1)) }
         if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(0, active - 1)) }
-        if (e.key === 'Enter' && active >= 0 && results[active]) { e.preventDefault(); select(results[active]) }
+        if (e.key === 'Enter' && open && active >= 0 && results[active]) { e.preventDefault(); select(results[active]) }
       }} />{loading ? <LoaderCircle className="spin" size={15} /> : <Search size={15} className="search-icon" />}</div>
     {open && (results.length > 0 || error) && <div className="search-dropdown" id={`${id}-results`} role="listbox" aria-label={`${label} search results`}>
       {error && <p role="status">{error}</p>}

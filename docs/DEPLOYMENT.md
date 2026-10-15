@@ -42,9 +42,11 @@ The optional BuildKit secret is used only in networked npm/pip steps. At runtime
 
 ## Required outbound destinations
 
-Server: `router.project-osrm.org`, `geocoding-api.open-meteo.com`, `api.open-meteo.com` (HTTPS 443). Browser: `basemaps.cartocdn.com` for tiles. Package/build destinations are handled by the cloud package-manager preset. No raw provider keys are required.
+Server: `router.project-osrm.org`, `geocoding-api.open-meteo.com`, `api.open-meteo.com` (HTTPS 443). Browser: `tile.openstreetmap.org` for tiles. Package/build destinations are handled by the cloud package-manager preset. No raw provider keys are required.
 
-The onboarding draft includes these additions, but saving the draft does **not** apply its network policy or publish a snapshot. Review/save it in environment settings, publish when satisfied, then retry live checks. Never disable TLS or bypass the proxy to work around denial. Public deployment networking is separately controlled by that host.
+Keep the map's OpenStreetMap attribution visible and preserve the TileLayer's `strict-origin-when-cross-origin` referrer policy. It overrides Django's document-wide `same-origin` policy so browser tile requests identify the site. Normal browser HTTP caching must remain enabled; do not add prefetch/offline/bulk tile downloads. Read the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/) before hosting. This community service has no SLA; larger deployments need a provider suited to their traffic.
+
+The previous cloud onboarding draft used the earlier tile hostname. If reusing that environment, update its browser allowlist to `tile.openstreetmap.org`; saving a draft does **not** apply its network policy or publish a snapshot. Local networking and public deployment networking are separately controlled by their hosts. Never disable TLS to work around denial.
 
 ## Release validation
 

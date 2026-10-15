@@ -21,5 +21,5 @@ export function displayTime(value: string, zone: string, full = false) {
   return new Intl.DateTimeFormat('en-US', { timeZone: zone, month: full ? 'short' : undefined, day: full ? 'numeric' : undefined,
     hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(new Date(value))
 }
-export function duration(seconds: number) { return `${Math.floor(seconds / 3600)}h ${Math.round(seconds % 3600 / 60)}m` }
+export function duration(seconds: number) { const minutes = Math.round(seconds / 60); return `${Math.floor(minutes / 60)}h ${minutes % 60}m` }
 export function value(number: number | null | undefined, digits = 1) { return number == null ? 'Unavailable' : number.toFixed(digits) }

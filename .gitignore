@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .env
 node_modules/
+.npm-cache/
 frontend/dist/
 staticfiles/
 *.sqlite3

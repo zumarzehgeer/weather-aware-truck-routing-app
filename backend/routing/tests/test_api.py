@@ -89,7 +89,7 @@ def osrm_route():
 
 def test_fewer_distinct_routes_and_weather_failure_excluded(client):
     data=payload();data['demo']=False
-    def fake(url,params,name):
+    def fake(url,params,name,**kwargs):
         if name=='Routing service':
             return {'code':'Ok','routes':[osrm_route(),osrm_route()]}
         raise providers.ProviderError('Weather rate limit reached.','provider_rate_limit',503)
