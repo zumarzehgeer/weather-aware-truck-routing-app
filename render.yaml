@@ -1,0 +1,20 @@
+# Deployment preparation only. Review the plan and terms in Render before creating a service.
+services:
+  - type: web
+    name: weather-aware-truck-routing
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        value: localhost,127.0.0.1
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_REQUIRE_SECRET
+        value: "true"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: ENABLE_DEMO
+        value: "true"
