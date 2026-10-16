@@ -12,7 +12,62 @@ from django.core.cache import cache
 from . import common
 
 _weather_budget_lock = threading.Lock()
-_weather_slots = threading.BoundedSemaphore(3)
+# The free API allows one running request per IP; a shared host can fill its small queue.
+_weather_slots = threading.BoundedSemaphore(1)
+
+
+def _cooldown_key():
+    return common.key("weather-cooldown:", settings.WEATHER_BASE_URL)
+
+
+def _request_batch(coords, deadline):
+    """Serialize outbound calls and retry only brief concurrency rejections, never quotas."""
+    params = {
+        "latitude": ",".join(str(c[1]) for c in coords),
+        "longitude": ",".join(str(c[0]) for c in coords),
+        "hourly": "wind_speed_10m,rain,showers,snowfall",
+        "wind_speed_unit": "mph",
+        "precipitation_unit": "inch",
+        "timezone": "GMT",
+        "timeformat": "unixtime",
+        "forecast_days": 7,
+    }
+    for attempt in range(3):
+        # Leave the HTTP timeout inside the frontend's overall request deadline.
+        wait = deadline - time.monotonic() - 25
+        if wait <= 0 or not _weather_slots.acquire(timeout=wait):
+            raise common.ProviderError(
+                "Weather service is busy. Retry after the current evaluation finishes."
+            )
+        try:
+            paused = cache.get(_cooldown_key())
+            if paused:
+                raise common.ProviderError(paused, "provider_rate_limit", 503)
+            reserve_weather_budget(len(coords))
+            try:
+                return common.get_json(
+                    settings.WEATHER_BASE_URL + "/v1/forecast", params, "Weather service"
+                )
+            except common.ProviderError as exc:
+                delay = exc.retry_after if exc.retry_after is not None else 2 ** (attempt + 1)
+                can_retry = (
+                    exc.transient
+                    and attempt < 2
+                    and delay <= 5
+                    and time.monotonic() + delay + 25 < deadline
+                )
+                if not can_retry:
+                    if exc.code == "provider_rate_limit":
+                        cooldown = (
+                            exc.retry_after
+                            if exc.retry_after is not None
+                            else (5 if exc.transient else 60)
+                        )
+                        cache.set(_cooldown_key(), str(exc), max(1, min(cooldown, 86400)))
+                    raise
+        finally:
+            _weather_slots.release()
+        time.sleep(delay)
 
 
 def reserve_weather_budget(locations):
@@ -109,24 +164,11 @@ def forecasts(coordinates):
         else:
             pending.append(c)
 
+    deadline = time.monotonic() + 85
+
     def batch(coords):
         try:
-            reserve_weather_budget(len(coords))
-            with _weather_slots:
-                raw = common.get_json(
-                    settings.WEATHER_BASE_URL + "/v1/forecast",
-                    {
-                        "latitude": ",".join(str(c[1]) for c in coords),
-                        "longitude": ",".join(str(c[0]) for c in coords),
-                        "hourly": "wind_speed_10m,rain,showers,snowfall",
-                        "wind_speed_unit": "mph",
-                        "precipitation_unit": "inch",
-                        "timezone": "GMT",
-                        "timeformat": "unixtime",
-                        "forecast_days": 7,
-                    },
-                    "Weather service",
-                )
+            raw = _request_batch(coords, deadline)
             data = raw if isinstance(raw, list) else [raw]
             if len(data) != len(coords):
                 raise ValueError("Wrong location count")

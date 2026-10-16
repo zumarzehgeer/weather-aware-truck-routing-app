@@ -190,9 +190,9 @@ def test_weather_concurrency_is_shared_between_trip_evaluations():
             calls += 1
             active += 1
             peak = max(peak, active)
-            if active == 3:
+            if active == 1:
                 full.set()
-            if active > 3:
+            if active > 1:
                 exceeded.set()
         try:
             assert release.wait(5)
@@ -215,7 +215,7 @@ def test_weather_concurrency_is_shared_between_trip_evaluations():
             for future in futures:
                 assert not future.result()[1]
     assert calls == 6
-    assert peak == 3
+    assert peak == 1
 
 
 def boundary_route(sign=1, latitude=61):

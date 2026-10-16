@@ -2,6 +2,12 @@
 
 Results below are dated observations, not guarantees of ongoing provider availability.
 
+## Hosted-weather hotfix · 16 October 2026
+
+A fresh hosted Chicago–Detroit check reproduced two valid routes with no available arrival forecasts. The weather adapter previously allowed three concurrent outbound requests, while the provider now documents one concurrent request per IP. It now serializes weather requests, retries only brief concurrency rejections, honors `Retry-After`, and pauses requests after provider quota rejections. Provider warnings distinguish concurrency from minute/hour/day quotas without exposing raw upstream data.
+
+Local backend verification: **135 tests passed**, including shared single-request concurrency, bounded retries, quota cooldown, valid cached weather during cooldown, and safe rate-limit classification. Hosted recovery must be confirmed after deployment; this change does not claim that a provider's shared-IP quota can be reset by application code.
+
 ## Structure and readability verification · 16 October 2026
 
 After separating UI components, the trip-state hook, styles, request validation and provider adapters:

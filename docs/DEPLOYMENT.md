@@ -61,6 +61,8 @@ The default checks health, frontend assets and the labelled synthetic trip. `--l
 
 ## Weather throttling
 
+The free weather API permits one concurrent request per IP. The adapter serializes weather requests across evaluations and retries a concurrency rejection at most twice with short backoff. It honors `Retry-After`, pauses outbound weather calls after exhausted quotas, and distinguishes concurrency/minute/hour/day rejection categories. Cached successful forecasts remain usable during the pause; missing data is never filled with synthetic weather. Shared hosting egress can still be affected by other applications. See the [provider's concurrency explanation](https://github.com/open-meteo/open-meteo/issues/1650).
+
 The last recorded hosted check on 15 October 2026 received `Weather service rate limit reached. Wait before retrying.` Geocoding and routes worked, but arrival forecasts were incomplete and no route was recommended. Successful local live checks on 16 October do not establish hosted readiness.
 
 Pause provider requests after upstream throttling; repeated comparisons or redeployments do not establish quota reset. Shared outbound IPs can contribute to provider limits, but the specific cause and reset time of this incident were not established. See [validation](VALIDATION.md).
