@@ -10,7 +10,11 @@ The follow-up uses browser-assisted public forecasts on Render. Django owns trip
 
 Regression verification: **144 backend tests, 6 frontend unit tests and 25 desktop/phone browser tests passed**, with one intentional duplicate layout check skipped. Coverage includes one-use/expired preparation tokens, server-owned trip inputs, malformed/failed weather remaining Unknown, quota pauses, cache reuse and startup health-check recovery. Build, static collection, Django checks and formatters passed. Interactive local checks covered route switching, timeline changes, map layers and a 390px layout with no horizontal overflow.
 
-Hosted verification of the browser-assisted deployment is recorded after release below. Provider quotas still apply; application code does not reset them.
+### Hosted browser-weather verification · 16 October 2026, 16:38 UTC
+
+Render deployed `b09439d`; its [GitHub verification workflow](https://github.com/zumarzehgeer/weather-aware-truck-routing-app/actions/runs/38933167149) passed. Playwright exercised the actual public URL through the UI without mocked weather: **HTTP 200, live mode, browser transport, two complete routes with 13 checkpoints each, zero Unknown route miles, Route A recommended and 49 corridor frames**. Returned weather included real nonzero wind/rain values. The only warning disclosed two distinct OSRM alternatives; no weather quota or incomplete-forecast warning remained.
+
+Hosted route switching, the +48h timeline and a weather checkpoint popup worked without additional data requests. At 390px there was no page overflow. Screenshots were saved outside tracked source files. Provider quotas still apply to visitors; this verifies the observed trip, not guaranteed provider uptime.
 
 ## Structure and readability verification · 16 October 2026
 

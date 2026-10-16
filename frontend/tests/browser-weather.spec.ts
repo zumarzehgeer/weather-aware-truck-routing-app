@@ -1,23 +1,30 @@
 import { test, expect } from './fixtures'
+import type { Plan } from '../src/types'
+
+// Reuse the real demo response within each worker to stay below the API's trip limit.
+let demoTemplate: Plan | undefined
 
 for (const available of [true, false]) {
   test(`browser weather transport handles ${available ? 'available forecasts and caching' : 'provider throttling without fallback'}`, async ({
     page,
     request,
   }) => {
-    const response = await request.post('/api/plan', {
-      data: {
-        origin: { name: 'Chicago', latitude: 41.8781, longitude: -87.6298 },
-        destination: { name: 'Detroit', latitude: 42.3314, longitude: -83.0458 },
-        departure_local: new Date(Date.now() + 3600_000).toISOString().slice(0, 16),
-        timezone: 'UTC',
-        load_lb: 32000,
-        spacing_miles: 25,
-        demo: true,
-      },
-    })
-    expect(response.ok()).toBe(true)
-    const fixture = await response.json()
+    if (!demoTemplate) {
+      const response = await request.post('/api/plan', {
+        data: {
+          origin: { name: 'Chicago', latitude: 41.8781, longitude: -87.6298 },
+          destination: { name: 'Detroit', latitude: 42.3314, longitude: -83.0458 },
+          departure_local: new Date(Date.now() + 3600_000).toISOString().slice(0, 16),
+          timezone: 'UTC',
+          load_lb: 32000,
+          spacing_miles: 25,
+          demo: true,
+        },
+      })
+      expect(response.ok()).toBe(true)
+      demoTemplate = await response.json()
+    }
+    const fixture = structuredClone(demoTemplate!)
     fixture.mode = 'live'
     fixture.providers.weather_transport = 'browser'
     if (!available) {
