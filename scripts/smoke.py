@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import urllib.request
+from urllib.parse import urlencode
 from datetime import datetime, timedelta, timezone
 
 
@@ -14,16 +15,20 @@ def main():
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
 
-    def fetch(path, data=None):
+    def fetch_url(url, data=None):
         req = urllib.request.Request(
-            base + path,
+            url,
             data=json.dumps(data).encode() if data else None,
             headers={"Content-Type": "application/json"} if data else {},
         )
         with urllib.request.urlopen(req, timeout=120) as response:
             return response.read()
 
-    assert json.loads(fetch("/api/health"))["status"] == "ok"
+    def fetch(path, data=None):
+        return fetch_url(base + path, data)
+
+    health = json.loads(fetch("/api/health"))
+    assert health["status"] == "ok"
     html = fetch("/").decode()
     assets = re.findall(r'(?:src|href)="(/assets/[^\"]+)"', html)
     assert assets and all(len(fetch(asset)) > 100 for asset in assets)
@@ -47,7 +52,34 @@ def main():
         "spacing_miles": 25,
         "demo": not args.live,
     }
-    result = json.loads(fetch("/api/plan", data))
+    if args.live and health.get("weather_transport") == "browser":
+        prepared = json.loads(fetch("/api/plan/prepare", data))
+        batches = []
+        for offset in range(0, len(prepared["locations"]), 40):
+            coords = prepared["locations"][offset : offset + 40]
+            params = urlencode(
+                {
+                    "latitude": ",".join(str(c[1]) for c in coords),
+                    "longitude": ",".join(str(c[0]) for c in coords),
+                    "hourly": "wind_speed_10m,rain,showers,snowfall",
+                    "wind_speed_unit": "mph",
+                    "precipitation_unit": "inch",
+                    "timezone": "GMT",
+                    "timeformat": "unixtime",
+                    "forecast_days": 7,
+                }
+            )
+            batches.append(
+                json.loads(fetch_url("https://api.open-meteo.com/v1/forecast?" + params))
+            )
+        result = json.loads(
+            fetch(
+                "/api/plan/complete",
+                {"token": prepared["token"], "weather_batches": batches},
+            )
+        )
+    else:
+        result = json.loads(fetch("/api/plan", data))
     assert result["mode"] == ("live" if args.live else "demo")
     assert 1 <= len(result["routes"]) <= 3
     assert len(result["corridor"]["timestamps"]) == 49 and result["corridor"]["cells"]

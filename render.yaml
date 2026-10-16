@@ -18,3 +18,5 @@ services:
         value: "true"
       - key: ENABLE_DEMO
         value: "true"
+      - key: WEATHER_TRANSPORT
+        value: browser

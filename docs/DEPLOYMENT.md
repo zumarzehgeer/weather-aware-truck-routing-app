@@ -36,6 +36,7 @@ The repository includes a Docker Blueprint in `render.yaml`. Connect the intende
 | `DJANGO_DEBUG` | `false` |
 | `TRUST_PROXY` | `true` behind Render's TLS proxy |
 | `ENABLE_DEMO` | `true` to expose the labelled synthetic workflow |
+| `WEATHER_TRANSPORT` | `browser` (also the automatic default when Render injects its hostname) |
 
 The app accepts `RENDER_EXTERNAL_HOSTNAME` automatically. Add any custom domain to `DJANGO_ALLOWED_HOSTS`. Configure `PROVIDER_USER_AGENT` with project/contact identification. The Blueprint specifies the free plan; review available plans and terms in the host dashboard. Free services may sleep and take time to start after inactivity.
 
@@ -43,7 +44,7 @@ For updates, push the intended code and verify Render deploys the expected commi
 
 ## Outbound services
 
-The server requires HTTPS access to `router.project-osrm.org`, `geocoding-api.open-meteo.com` and `api.open-meteo.com`. The browser requests `tile.openstreetmap.org` for the basemap. Keep TLS verification enabled.
+The server requires HTTPS access to `router.project-osrm.org` and `geocoding-api.open-meteo.com`. In browser weather mode, visitors also require access to `api.open-meteo.com`; server mode requires that access from the server instead. The browser requests `tile.openstreetmap.org` for the basemap. Keep TLS verification enabled.
 
 Preserve visible OpenStreetMap attribution, normal browser tile caching and the map's `strict-origin-when-cross-origin` referrer policy. Do not add bulk downloads or offline prefetch. Public demo providers have no availability guarantee; operational use needs suitable provider agreements and truck-aware routing.
 
@@ -63,8 +64,8 @@ The default checks health, frontend assets and the labelled synthetic trip. `--l
 
 The free weather API permits one concurrent request per IP. The adapter serializes weather requests across evaluations and retries a concurrency rejection at most twice with short backoff. It honors `Retry-After`, pauses outbound weather calls after exhausted quotas, and distinguishes concurrency/minute/hour/day rejection categories. Cached successful forecasts remain usable during the pause; missing data is never filled with synthetic weather. Shared hosting egress can still be affected by other applications. See the [provider's concurrency explanation](https://github.com/open-meteo/open-meteo/issues/1650).
 
-The last recorded hosted check on 15 October 2026 received `Weather service rate limit reached. Wait before retrying.` Geocoding and routes worked, but arrival forecasts were incomplete and no route was recommended. Successful local live checks on 16 October do not establish hosted readiness.
+A hosted check on 16 October confirmed a daily quota rejection from the server weather path. Render now defaults to browser-assisted weather: Django prepares the real routes and samples, while the visitor fetches the public CORS forecast API sequentially. A bounded 30-minute browser cache avoids repeated forecast requests for the same locations. Django validates uploaded forecasts and computes risk using server-owned trip inputs. Weather transported by the browser is untrusted client input; it is not a server-authenticated feed and results are not persisted or shared. Preparation tokens expire in three minutes and can be used once.
 
-Pause provider requests after upstream throttling; repeated comparisons or redeployments do not establish quota reset. Shared outbound IPs can contribute to provider limits, but the specific cause and reset time of this incident were not established. See [validation](VALIDATION.md).
+Visitors remain subject to normal provider limits. HTTP 429 pauses new browser weather requests for 60 seconds; failed weather remains Unknown. Repeated comparisons or redeployments cannot reset quotas. Switching transport changes where requests originate, without adding credentials, a proxy or a paid provider. See the dated [validation record](VALIDATION.md).
 
 The free Open-Meteo endpoint is for non-commercial access. If changing to a customer API, implement and test server-side authentication first: changing `WEATHER_BASE_URL` alone does not add an API key. Never put secret credentials in browser code or `VITE_*` variables.

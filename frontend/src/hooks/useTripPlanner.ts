@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { chicago, detroit } from '../constants'
 import { api } from '../lib/api'
-import type { Place, Plan } from '../types'
+import { requestPlan } from '../lib/plan'
+import type { Capabilities, Place, Plan } from '../types'
 import { localDate } from '../utils/format'
 
 /** Owns editable trip inputs and the last successfully evaluated plan. */
@@ -26,10 +27,11 @@ export function useTripPlanner() {
   const errorRef = useRef<HTMLDivElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const activeRequest = useRef(false)
+  const capabilitiesRequest = useRef<Promise<Capabilities> | null>(null)
   useEffect(() => {
-    api<{ demo_enabled: boolean }>('/api/health')
-      .then((data) => setDemoEnabled(data.demo_enabled))
-      .catch(() => {})
+    const request = api<Capabilities>('/api/health')
+    capabilitiesRequest.current = request
+    request.then((data) => setDemoEnabled(data.demo_enabled)).catch(() => {})
   }, [])
   useEffect(() => {
     if (error) errorRef.current?.focus()
@@ -69,10 +71,15 @@ export function useTripPlanner() {
       setDestination(detroit)
     }
     try {
-      const result = await api<Plan>('/api/plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const capabilities = useDemo
+        ? null
+        : await capabilitiesRequest.current?.catch(() => {
+            // Retry a failed startup health check rather than selecting the wrong transport.
+            capabilitiesRequest.current = api<Capabilities>('/api/health')
+            return capabilitiesRequest.current
+          })
+      const result = await requestPlan(
+        {
           origin: from,
           destination: to,
           departure_local: departure,
@@ -80,8 +87,9 @@ export function useTripPlanner() {
           load_lb: Number(load),
           spacing_miles: spacing,
           demo: useDemo,
-        }),
-      })
+        },
+        capabilities?.weather_transport ?? 'server',
+      )
       setPlan(result)
       setSelected(result.recommended_id ?? result.routes[0].id)
       setHour(0)

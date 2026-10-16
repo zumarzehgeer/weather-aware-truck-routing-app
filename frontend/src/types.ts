@@ -1,4 +1,14 @@
 export type Place = { name: string; latitude: number; longitude: number; timezone?: string }
+export type PlanRequest = {
+  origin: Place
+  destination: Place
+  departure_local: string
+  timezone: string
+  load_lb: number
+  spacing_miles: number
+  demo: boolean
+}
+export type Capabilities = { demo_enabled: boolean; weather_transport?: 'server' | 'browser' }
 export type Weather = {
   time: string
   wind_mph: number | null
@@ -47,5 +57,10 @@ export type Plan = {
   explanation: string
   warnings: string[]
   corridor: { timestamps: string[]; cells: Cell[] }
-  providers: { routing: string; weather: string; truck_restrictions: boolean }
+  providers: {
+    routing: string
+    weather: string
+    truck_restrictions: boolean
+    weather_transport?: 'server' | 'browser'
+  }
 }

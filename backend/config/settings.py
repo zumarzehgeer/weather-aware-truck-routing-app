@@ -42,7 +42,8 @@ CACHES = {
         "OPTIONS": {"MAX_ENTRIES": 2000},
     }
 }
-DATA_UPLOAD_MAX_MEMORY_SIZE = 16384
+# Browser weather completion accepts bounded columnar provider responses; trip inputs stay 16 KiB.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 4 * 1024 * 1024
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
@@ -52,5 +53,10 @@ if os.environ.get("TRUST_PROXY", "false").lower() == "true":
 ENABLE_DEMO = os.environ.get("ENABLE_DEMO", "true").lower() == "true"
 OSRM_BASE_URL = os.environ.get("OSRM_BASE_URL", "https://router.project-osrm.org")
 WEATHER_BASE_URL = os.environ.get("WEATHER_BASE_URL", "https://api.open-meteo.com")
+WEATHER_TRANSPORT = os.environ.get(
+    "WEATHER_TRANSPORT", "browser" if os.environ.get("RENDER_EXTERNAL_HOSTNAME") else "server"
+)
+if WEATHER_TRANSPORT not in ("server", "browser"):
+    raise ImproperlyConfigured("WEATHER_TRANSPORT must be server or browser.")
 GEOCODING_BASE_URL = os.environ.get("GEOCODING_BASE_URL", "https://geocoding-api.open-meteo.com")
 PROVIDER_USER_AGENT = os.environ.get("PROVIDER_USER_AGENT", "WeatherAwareAssessment/1.0")

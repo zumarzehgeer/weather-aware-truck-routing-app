@@ -35,7 +35,13 @@ def throttle(request, kind, limit):
 
 @require_GET
 def health(request):
-    return JsonResponse({"status": "ok", "demo_enabled": settings.ENABLE_DEMO})
+    return JsonResponse(
+        {
+            "status": "ok",
+            "demo_enabled": settings.ENABLE_DEMO,
+            "weather_transport": settings.WEATHER_TRANSPORT,
+        }
+    )
 
 
 @require_GET
@@ -56,6 +62,8 @@ def plan(request):
     if request.content_type != "application/json":
         return error("Use application/json.", "unsupported_media_type", 415)
     try:
+        if len(request.body) > 16384:
+            raise ValueError("Trip input is too large.")
         data = json.loads(request.body)
         args = validate(data)
     except (

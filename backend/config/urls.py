@@ -1,9 +1,11 @@
 from django.urls import path
-from routing import views
+from routing import browser_weather, views
 
 urlpatterns = [
     path("api/health", views.health),
     path("api/geocode", views.geocode),
     path("api/plan", views.plan),
+    path("api/plan/prepare", browser_weather.prepare),
+    path("api/plan/complete", browser_weather.complete),
     path("", views.index),
 ]

@@ -1,3 +1,11 @@
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const controller = new AbortController()
   const caller = options?.signal
@@ -16,8 +24,9 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
       return null
     })
     if (!response.ok)
-      throw new Error(
+      throw new ApiError(
         data?.error?.message ?? `Request failed (${response.status}). Please try again.`,
+        response.status,
       )
     if (!data) throw new Error('The server returned an unreadable response.')
     return data as T

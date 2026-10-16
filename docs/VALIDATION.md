@@ -4,9 +4,13 @@ Results below are dated observations, not guarantees of ongoing provider availab
 
 ## Hosted-weather hotfix · 16 October 2026
 
-A fresh hosted Chicago–Detroit check reproduced two valid routes with no available arrival forecasts. The weather adapter previously allowed three concurrent outbound requests, while the provider now documents one concurrent request per IP. It now serializes weather requests, retries only brief concurrency rejections, honors `Retry-After`, and pauses requests after provider quota rejections. Provider warnings distinguish concurrency from minute/hour/day quotas without exposing raw upstream data.
+A fresh hosted Chicago–Detroit check reproduced two valid routes with no available arrival forecasts. The weather adapter previously allowed three concurrent outbound requests, while the provider now documents one concurrent request per IP. The first hotfix, commit `a7f9723`, serializes requests, retries only brief concurrency rejections, honors `Retry-After`, and pauses after quota rejections. GitHub CI passed and Render deployed it. Its more precise warning then confirmed a **daily weather quota rejection** from the hosted server; concurrency changes alone did not restore forecasts.
 
-Local backend verification: **135 tests passed**, including shared single-request concurrency, bounded retries, quota cooldown, valid cached weather during cooldown, and safe rate-limit classification. Hosted recovery must be confirmed after deployment; this change does not claim that a provider's shared-IP quota can be reset by application code.
+The follow-up uses browser-assisted public forecasts on Render. Django owns trip preparation, routes and risk evaluation; browser weather is bounded, validated, untrusted input used only for its prepared trip. The local production build completed a real Chicago–Detroit comparison through prepare → browser Open-Meteo fetches → server evaluation: **two complete routes, zero Unknown route miles, Route A recommended, 49 corridor frames**. The only warning disclosed that OSRM returned two alternatives. The live CLI smoke check also passed through the new transport. Direct CORS access from the hosted page's origin returned HTTP 200 before deployment.
+
+Regression verification: **144 backend tests, 6 frontend unit tests and 25 desktop/phone browser tests passed**, with one intentional duplicate layout check skipped. Coverage includes one-use/expired preparation tokens, server-owned trip inputs, malformed/failed weather remaining Unknown, quota pauses, cache reuse and startup health-check recovery. Build, static collection, Django checks and formatters passed. Interactive local checks covered route switching, timeline changes, map layers and a 390px layout with no horizontal overflow.
+
+Hosted verification of the browser-assisted deployment is recorded after release below. Provider quotas still apply; application code does not reset them.
 
 ## Structure and readability verification · 16 October 2026
 

@@ -6,7 +6,7 @@ Waycast is a full-stack weather-aware truck route planner built for the Spotter 
 
 [Run locally](#run-locally) · [Code tour](#architecture) · [Risk model](#weather-and-risk-model) · [API](#api) · [Tests](#verification) · [Deployment](#deployment-and-limitations)
 
-**Deployment note:** The last recorded hosted check on **15 October 2026** encountered an upstream weather rate limit. Missing forecasts remain Unknown, and incomplete routes cannot be recommended. The labelled synthetic demo works independently of live providers. Subsequent local refactoring and successful local live checks do not establish that the hosted deployment is current or that its provider quota has reset. See the [validation record](docs/VALIDATION.md).
+**Live weather:** Render uses browser-assisted public Open-Meteo requests to avoid depending on the host's exhausted shared weather quota. Django prepares the routes, validates returned forecasts and computes risk. Provider limits still apply to each visitor; missing forecasts remain Unknown and incomplete routes cannot be recommended. See the dated [validation record](docs/VALIDATION.md).
 
 ## Technology
 
@@ -99,7 +99,7 @@ frontend/src/
   hooks/              Trip inputs, request lifecycle and evaluated-result state
   components/         Trip form, search, comparison, forecast and checkpoint table
     map/              Leaflet viewport, route paths, forecast cells and checkpoint layers
-  lib/                HTTP client with cancellation, deadlines and structured errors
+  lib/                HTTP client and server/browser weather request orchestration
   utils/              Time, duration and measurement formatting
   types.ts            API response types
   constants.ts        Demo cities, timezones and display colors
@@ -107,6 +107,7 @@ frontend/src/
 backend/config/       Django settings, URLs and WSGI
 backend/routing/
   views.py            Thin HTTP endpoints and application rate limits
+  browser_weather.py  Short-lived prepared trips and bounded browser-weather validation
   validation.py       Trip input checks, timezone conversion and DST handling
   providers/
     common.py         Shared HTTP error mapping, cache keys and numeric validation
@@ -124,7 +125,9 @@ scripts/                Setup, local startup, production startup and smoke check
 docs/                   Deployment instructions and validation summary
 ```
 
-The React app and JSON API share an origin in production. Gunicorn and WhiteNoise serve the Django API and built frontend. No persistence or authentication is required. Production uses one Gunicorn worker with four threads so in-memory cache and quota controls are shared. Multiple workers/replicas require shared caching and distributed quota control.
+The React app and JSON API share an origin in production. Gunicorn and WhiteNoise serve the Django API and built frontend. No persistence or authentication is required. Production uses one Gunicorn worker with four threads so in-memory cache, prepared trips and quota controls are shared. Multiple workers/replicas require shared caching and distributed quota control.
+
+In browser weather mode, Django validates the trip and obtains real OSRM routes, returning forecast coordinates with a single-use token valid for three minutes. The browser fetches public forecasts sequentially and submits them for the same backend evaluation. Client-supplied weather is untrusted input, structurally validated and used only for that trip; it is not a server-authenticated weather feed and results are never shared or persisted. No API secrets are sent to the browser. Local development defaults to server weather mode.
 
 ```mermaid
 flowchart LR
@@ -181,16 +184,16 @@ The slider begins at the **next full UTC hour after evaluation** and includes 49
 |---|---|---|
 | Routing | [OSRM Route API](https://project-osrm.org/docs/v5.24.0/api/#route-service) | Full GeoJSON and edge distance/duration annotations; retains up to three unique paths. Fewer alternatives are disclosed. Cached 24h; outbound routing requests serialized to at most one/second. |
 | City search | [Open-Meteo geocoding / GeoNames](https://open-meteo.com/en/docs/geocoding-api) | City/town results, not street addresses; six suggestions, 400 ms debounce, 24h cache. |
-| Weather | [Open-Meteo](https://open-meteo.com/en/docs) | Seven UTC forecast days; 40 locations/batch, one outbound weather request at a time across the worker; 30-minute location cache. Short concurrency rejections receive bounded retries. Quota rejections trigger a cooldown and remain explicit. Missing forecasts are never treated as low risk. |
+| Weather | [Open-Meteo](https://open-meteo.com/en/docs) | Seven UTC forecast days; 40 locations/batch. Render uses sequential browser requests with a bounded 30-minute in-memory batch cache. Server mode serializes requests across the worker, caches locations for 30 minutes and retries brief concurrency rejections. Both modes pause after quota rejection; missing forecasts stay Unknown. |
 | Basemap | [OpenStreetMap standard tiles](https://operations.osmfoundation.org/policies/tiles/) | Visible attribution, normal browser caching and identifying referrer policy; no bulk download or offline prefetch. |
 
-Application limits: 1,600 miles per alternative, 220 unique weather locations per plan, eight trip evaluations/minute/client, and 30 searches/minute/client. Location-based weather budgets are 500/minute, 4,500/hour and 9,000/day in the single worker. Batching does not make multiple locations one quota unit. Restarts, shared outbound IPs and provider accounting can still cause upstream limits. Per-client limiting uses `REMOTE_ADDR`, so a reverse proxy may conservatively share the limit across callers.
+Application limits: 1,600 miles per alternative, 220 unique weather locations per plan, eight trip evaluations/minute/client, and 30 searches/minute/client. Server-mode location budgets are 500/minute, 4,500/hour and 9,000/day in the single worker. Browser mode is subject to the visitor's provider quota and a 60-second pause after HTTP 429. Batching does not make multiple locations one quota unit. Restarts, shared outbound IPs and provider accounting can still cause upstream limits. Per-client limiting uses `REMOTE_ADDR`, so a reverse proxy may conservatively share the limit across callers.
 
 Default public routing/weather services have no availability guarantee; Open-Meteo's free endpoint is for non-commercial use. Follow each provider's current usage terms. Operational use requires appropriate provider access and truck-aware routing.
 
 ## API
 
-- `GET /api/health` → liveness and `demo_enabled`; does not establish provider readiness.
+- `GET /api/health` → liveness, `demo_enabled` and `weather_transport`; does not establish provider readiness.
 - `GET /api/geocode?q=Chicago` → named places with latitude, longitude and timezone.
 - `POST /api/plan` with JSON:
 
@@ -210,6 +213,8 @@ Replace the example departure with a future time within seven days. DST gaps and
 
 The response includes evaluated inputs, routes with geometry/checkpoints/summaries, nullable `recommended_id`, explanation, warnings, corridor timestamps/cell forecasts, provider disclosure and generation time. Geometry coordinates use **[longitude, latitude]**; Leaflet cell bounds use **[[south, west], [north, east]]**. Distances are miles, durations seconds and output timestamps UTC ISO-8601.
 
+When health reports `weather_transport: "browser"`, live clients use `POST /api/plan/prepare` with the same trip JSON, then fetch the returned `[longitude, latitude]` locations from the public forecast API in batches of 40. `POST /api/plan/complete` accepts `{ "token": "...", "weather_batches": [...] }` and returns the normal evaluated plan. Tokens expire after three minutes and are consumed once; expired/used tokens return 409. Failed batches are `null` and remain Unknown. Trip inputs are limited to 16 KiB and completion bodies to 4 MiB. The normal `/api/plan` endpoint remains available for server weather and synthetic demo requests.
+
 Errors use `{ "error": { "code": "...", "message": "..." } }`: 400 validation, 403 disabled demo, 415 content type, 422 trip/routing limits, 429 application limit, 502 provider failure and 503 provider throttling. Partial weather failures can return a plan with Unknown values and no recommendation for incomplete routes.
 
 ## Configuration
@@ -221,6 +226,7 @@ See [.env.example](.env.example). Keep real `.env` files and secret values out o
 | `DJANGO_SECRET_KEY`, `DJANGO_REQUIRE_SECRET` | Production requires a random non-example key of at least 40 characters. |
 | `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS` | Local debugging and permitted hostnames; Render's injected hostname is accepted automatically. |
 | `ENABLE_DEMO` | Enable the explicit synthetic workflow; default true. |
+| `WEATHER_TRANSPORT` | `server` locally; `browser` by default on Render. Browser mode uses the public Open-Meteo URL and ignores server-only `WEATHER_BASE_URL`. |
 | `OSRM_BASE_URL`, `WEATHER_BASE_URL`, `GEOCODING_BASE_URL` | Server-side provider endpoints. |
 | `PROVIDER_USER_AGENT` | Project/contact identification for provider requests. |
 | `TRUST_PROXY`, `SECURE_SSL_REDIRECT` | TLS proxy configuration; trust only a proxy that sanitizes forwarded protocol headers. |
@@ -228,13 +234,13 @@ See [.env.example](.env.example). Keep real `.env` files and secret values out o
 
 ## Verification
 
-Last local verification after the structural refactor, **16 October 2026**:
+Last local verification including the hosted-weather fix, **16 October 2026**:
 
 | Check | Result |
 |---|---|
-| Backend regression tests | 120 passed |
+| Backend regression tests | 144 passed |
 | Frontend unit tests | 6 passed |
-| Desktop / phone browser tests | 21 passed; one duplicate mobile layout check intentionally skipped |
+| Desktop / phone browser tests | 25 passed; one duplicate mobile layout check intentionally skipped |
 | Production build, Django checks, static collection and formatting | Passed |
 | Built-app synthetic smoke check | Passed |
 
@@ -286,7 +292,7 @@ Check a running deployment separately from the regression suites:
 .venv/Scripts/python.exe scripts/smoke.py --base-url https://YOUR-HOST --live
 ```
 
-Replace `https://YOUR-HOST` with the actual deployment URL or a local Django server serving the built frontend. The default checks health, frontend assets and synthetic planning. `--live` additionally exercises real providers and fails when arrival forecasts are incomplete. See [deployment instructions](docs/DEPLOYMENT.md) for building and serving the production app.
+Replace `https://YOUR-HOST` with the actual deployment URL or a local Django server serving the built frontend. The default checks health, frontend assets and synthetic planning. `--live` additionally exercises real providers and fails when arrival forecasts are incomplete. In browser weather mode, the smoke-check machine fetches public weather before submitting it to Django, matching the browser workflow. See [deployment instructions](docs/DEPLOYMENT.md) for building and serving the production app.
 
 ### Common setup issues
 

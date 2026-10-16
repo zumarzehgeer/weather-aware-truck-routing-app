@@ -9,10 +9,9 @@ from .providers.weather import forecasts, location_key, weather_at
 from .risk import classify, aggregate, recommend
 
 
-def build_plan(origin, destination, departure, load, spacing, demo=False):
-    now = datetime.now(timezone.utc)
+def prepare_plan(origin, destination, departure, load, spacing, demo=False):
     if demo:
-        from .demo import demo_routes, demo_forecasts
+        from .demo import demo_routes
 
         raw_routes = demo_routes()
         origin = {
@@ -47,7 +46,32 @@ def build_plan(origin, destination, departure, load, spacing, demo=False):
             "forecast_budget",
             422,
         )
-    series, warnings = (demo_forecasts(locations, now), []) if demo else forecasts(locations)
+    return {
+        "origin": origin,
+        "destination": destination,
+        "departure": departure,
+        "load": load,
+        "spacing": spacing,
+        "demo": demo,
+        "raw_routes": raw_routes,
+        "sampled": sampled,
+        "cells": cells,
+        "locations": locations,
+    }
+
+
+def evaluate_plan(prepared, series, warnings, now=None, weather_transport="server"):
+    """Apply the same server-side risk rules to normalized provider data."""
+    now = now or datetime.now(timezone.utc)
+    origin = prepared["origin"]
+    destination = prepared["destination"]
+    departure = prepared["departure"]
+    load = prepared["load"]
+    spacing = prepared["spacing"]
+    demo = prepared["demo"]
+    raw_routes = prepared["raw_routes"]
+    sampled = prepared["sampled"]
+    cells = prepared["cells"]
     routes = []
     for index, (raw, checkpoints) in enumerate(zip(raw_routes, sampled)):
         for n, point in enumerate(checkpoints):
@@ -106,5 +130,18 @@ def build_plan(origin, destination, departure, load, spacing, demo=False):
             "routing": "Synthetic fixture" if demo else "OSRM public driving",
             "weather": "Synthetic fixture" if demo else "Open-Meteo",
             "truck_restrictions": False,
+            "weather_transport": weather_transport,
         },
     }
+
+
+def build_plan(origin, destination, departure, load, spacing, demo=False):
+    now = datetime.now(timezone.utc)
+    prepared = prepare_plan(origin, destination, departure, load, spacing, demo)
+    if demo:
+        from .demo import demo_forecasts
+
+        series, warnings = demo_forecasts(prepared["locations"], now), []
+    else:
+        series, warnings = forecasts(prepared["locations"])
+    return evaluate_plan(prepared, series, warnings, now)
