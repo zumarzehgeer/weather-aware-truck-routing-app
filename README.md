@@ -240,7 +240,7 @@ Last local verification including the hosted-weather fix, **16 October 2026**:
 |---|---|
 | Backend regression tests | 144 passed |
 | Frontend unit tests | 6 passed |
-| Desktop / phone browser tests | 25 passed; one duplicate mobile layout check intentionally skipped |
+| Desktop / phone browser tests | 37 passed; one duplicate mobile layout check intentionally skipped |
 | Production build, Django checks, static collection and formatting | Passed |
 | Built-app synthetic smoke check | Passed |
 

@@ -5,6 +5,48 @@ type PreparedPlan = { token: string; locations: [number, number][] }
 const weatherCache = new Map<string, { expires: number; data: unknown }>()
 let weatherBlockedUntil = 0
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Reject malformed successes before they can prevent recovery on the next comparison. */
+function cacheableForecast(entry: unknown) {
+  if (!isObject(entry) || !isObject(entry.hourly) || !isObject(entry.hourly_units)) return false
+  const hourly = entry.hourly,
+    units = entry.hourly_units,
+    times = hourly.time
+  // GMT + forecast_days=7 requests the current UTC day's full seven-day horizon.
+  const todayStart = Math.floor(Date.now() / 86_400_000) * 86_400
+  if (
+    !Array.isArray(times) ||
+    times.length !== 7 * 24 ||
+    times[0] !== todayStart ||
+    !times.every(
+      (time, index) =>
+        typeof time === 'number' &&
+        Number.isFinite(time) &&
+        time % 3600 === 0 &&
+        (index === 0 || time === times[index - 1] + 3600),
+    )
+  )
+    return false
+  return ['wind_speed_10m', 'rain', 'showers', 'snowfall'].every((field) => {
+    const values = hourly[field]
+    const supportedUnits =
+      field === 'wind_speed_10m' ? ['mp/h', 'mph', 'km/h', 'm/s', 'kn'] : ['inch', 'in', 'mm', 'cm']
+    return (
+      typeof units[field] === 'string' &&
+      supportedUnits.includes(units[field]) &&
+      Array.isArray(values) &&
+      values.length === times.length &&
+      values.every(
+        (value) =>
+          value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 0),
+      )
+    )
+  })
+}
+
 /** Public CORS weather requests use the visitor's normal provider access, without secrets. */
 export async function requestPlan(input: PlanRequest, transport: 'server' | 'browser' = 'server') {
   const controller = new AbortController()
@@ -49,14 +91,13 @@ export async function requestPlan(input: PlanRequest, transport: 'server' | 'bro
           }
           data = await api<unknown>(key, { signal: controller.signal })
           const entries = Array.isArray(data) ? data : [data]
-          if (
-            entries.length !== coords.length ||
-            entries.some((entry) => !entry?.hourly || !Array.isArray(entry.hourly.time))
-          ) {
-            throw new Error('Weather provider returned malformed data.')
+          if (entries.length === coords.length && entries.every(cacheableForecast)) {
+            if (weatherCache.size >= 12) weatherCache.delete(weatherCache.keys().next().value!)
+            const now = Date.now()
+            const nextDay = (Math.floor(now / 86_400_000) + 1) * 86_400_000
+            weatherCache.set(key, { data, expires: Math.min(now + 30 * 60_000, nextDay) })
           }
-          if (weatherCache.size >= 12) weatherCache.delete(weatherCache.keys().next().value!)
-          weatherCache.set(key, { data, expires: Date.now() + 30 * 60_000 })
+          // Django still evaluates uncached input, preserving any known hazards in partial data.
         }
         batches.push(data)
       } catch (error) {

@@ -2,6 +2,14 @@
 
 Results below are dated observations, not guarantees of ongoing provider availability.
 
+## Hotfix code-review follow-up · 16 October 2026
+
+Reviewed the three hosted-weather commits after `c664826` along the Standards and Spec axes, then repeated both passes after corrections. One P2 recovery defect was reproduced: malformed HTTP 200 forecasts could remain in the browser cache for 30 minutes, preventing later comparisons from fetching recovered provider data. Follow-up passes extended the correction to duplicate hours, truncated and stale forecast horizons.
+
+Only a structurally valid current UTC day's seven-day forecast can now enter the cache. Entries expire after 30 minutes or at UTC midnight, whichever comes first. Uncacheable data still reaches Django unchanged so partial known hazards and Unknown handling are preserved. No synthetic fallback was added.
+
+Final review: **zero remaining critical or important findings on either axis**. Verification: **144 backend tests, 6 unit tests and 37 desktop/phone browser tests passed**, with one duplicate layout check intentionally skipped. Production build, Django checks, static collection, Black and Prettier passed. Browser regressions cover recovery after missing fields, unsupported units, duplicate hours, truncated/stale horizons and UTC-day rollover. A real local production-build comparison also returned two complete live routes and a recommendation; public forecasts supplied the expected 168-hour series and units.
+
 ## Hosted-weather hotfix · 16 October 2026
 
 A fresh hosted Chicago–Detroit check reproduced two valid routes with no available arrival forecasts. The weather adapter previously allowed three concurrent outbound requests, while the provider now documents one concurrent request per IP. The first hotfix, commit `a7f9723`, serializes requests, retries only brief concurrency rejections, honors `Retry-After`, and pauses after quota rejections. GitHub CI passed and Render deployed it. Its more precise warning then confirmed a **daily weather quota rejection** from the hosted server; concurrency changes alone did not restore forecasts.
