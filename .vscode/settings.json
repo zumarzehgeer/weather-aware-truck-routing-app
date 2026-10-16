@@ -1,4 +1,8 @@
 {
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+    },
     "workbench.colorCustomizations": {
         "statusBar.background": "#2a0746",
         "statusBar.debuggingBackground": "#2a0746",
