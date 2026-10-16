@@ -1,70 +1,68 @@
-# Deployment handoff
+# Deployment
 
-The user deployed commit `f32f764` on **Render Free** at **https://weather-aware-truck-routing-app.onrender.com/** on 15 October 2026. Health, frontend assets, synthetic smoke and hosted desktop/mobile demo interactions passed. Hosted live geocoding/routing works, but weather currently returns an upstream rate limit and remains unknown. See [current validation](VALIDATION.md). No paid resource was provisioned by the assistant. The app does not need a database, migrations, persistent disk, or a separate frontend host.
+Waycast serves its React build and Django API from one Docker web service. No database setup, migrations, persistent disk or separate frontend host is required.
 
-## Container
+Hosted application: [weather-aware-truck-routing-app.onrender.com](https://weather-aware-truck-routing-app.onrender.com/). See [validation](VALIDATION.md) for dated provider checks; deployment success alone does not establish live-weather readiness.
 
-From the repository root:
+## Docker
+
+From the repository root in Bash:
 
 ```bash
 docker build -t waycast:assessment .
-# Generate securely; this value remains in the environment, not in source.
 export DJANGO_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
 docker run --rm --name waycast -p 8000:8000 \
-  -e DJANGO_SECRET_KEY -e DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1 \
+  -e DJANGO_SECRET_KEY \
+  -e DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1 \
   -e ENABLE_DEMO=true waycast:assessment
 ```
 
-Use the host’s secure environment settings instead of shell history for a hosted production secret. The container requires a non-example key of at least 40 characters, runs as UID 10001, and listens on `$PORT` (8000 by default). Set `DJANGO_ALLOWED_HOSTS` to the public hostname. Bind only behind a TLS proxy for public use. Enable `TRUST_PROXY=true` only if the proxy owns and sanitizes `X-Forwarded-Proto`. Gunicorn has one threaded worker so in-memory cache/rate controls are shared.
+Open http://127.0.0.1:8000. The image builds and collects static files, then runs Gunicorn/WhiteNoise as UID 10001. It requires a non-example secret of at least 40 characters. The listener uses `PORT`, default 8000; `/api/health` is the container health check. Hosted secrets belong in the host's environment settings.
 
-### Managed cloud proxy
+One worker with four threads intentionally shares in-memory caches and quotas. Multiple workers or replicas require shared cache and distributed quota controls. Public deployment should sit behind a TLS proxy. Enable `TRUST_PROXY=true` only when the proxy strips and sets `X-Forwarded-Proto`; configure `SECURE_SSL_REDIRECT` to suit that proxy and its health checks.
 
-On this Codex environment, preserve the injected Docker configuration and use the local managed daemon. HTTPS verification must remain enabled. Session CA files must not be copied into the image:
+## Render
+
+The repository includes a Docker Blueprint in `render.yaml`. Connect the intended GitHub branch through Render's Blueprint flow, or create a Docker Web Service manually with the repository root as its build context.
+
+| Setting | Value |
+|---|---|
+| Runtime | Docker |
+| Root directory | Repository root (leave blank in the manual form) |
+| Dockerfile | `./Dockerfile` |
+| Health check | `/api/health` |
+| `DJANGO_SECRET_KEY` | Generated random secret, at least 40 characters |
+| `DJANGO_REQUIRE_SECRET` | `true` |
+| `DJANGO_DEBUG` | `false` |
+| `TRUST_PROXY` | `true` behind Render's TLS proxy |
+| `ENABLE_DEMO` | `true` to expose the labelled synthetic workflow |
+
+The app accepts `RENDER_EXTERNAL_HOSTNAME` automatically. Add any custom domain to `DJANGO_ALLOWED_HOSTS`. Configure `PROVIDER_USER_AGENT` with project/contact identification. The Blueprint specifies the free plan; review available plans and terms in the host dashboard. Free services may sleep and take time to start after inactivity.
+
+For updates, push the intended code and verify Render deploys the expected commit. The Docker build must rebuild the frontend and collect static files together; do not reuse collected assets from a different frontend build.
+
+## Outbound services
+
+The server requires HTTPS access to `router.project-osrm.org`, `geocoding-api.open-meteo.com` and `api.open-meteo.com`. The browser requests `tile.openstreetmap.org` for the basemap. Keep TLS verification enabled.
+
+Preserve visible OpenStreetMap attribution, normal browser tile caching and the map's `strict-origin-when-cross-origin` referrer policy. Do not add bulk downloads or offline prefetch. Public demo providers have no availability guarantee; operational use needs suitable provider agreements and truck-aware routing.
+
+## Release checks
+
+Against the assigned HTTPS address:
 
 ```bash
-BUILDX_CONFIG=/workspace/.cache/waycast-buildx \
-docker --host=unix:///var/run/docker.sock build \
-  --secret id=proxy_ca,src=/etc/ssl/certs/ca-certificates.crt \
-  -t waycast:assessment .
+python scripts/smoke.py --base-url https://YOUR-HOST
+# Optional real-provider check; consumes quota:
+python scripts/smoke.py --base-url https://YOUR-HOST --live
 ```
 
-The optional BuildKit secret is used only in networked npm/pip steps. At runtime, mount the combined trusted CA bundle read-only and set `SSL_CERT_FILE=/run/proxy-ca.pem` for HTTPX. Retain Docker’s supplied proxy defaults. Ordinary deployment hosts use their normal CA store and do not require this mount. If client context/TLS variables override the managed socket, clear only those selectors for the command as described by the runtime skill; keep `DOCKER_CONFIG` and registry authentication intact.
+The default checks health, frontend assets and the labelled synthetic trip. `--live` also checks actual geocoding, routes and complete arrival-time forecasts. A live failure is never replaced with fixtures. In the browser, also verify actual basemap content, route selection, checkpoint popups, the timeline, warnings and the phone layout.
 
-## Render Blueprint
+## Weather throttling
 
-1. Commit and push these files to the GitHub branch you intend to deploy. No commit/push was performed automatically.
-2. In your own Render account, choose a new Blueprint and connect this repository/branch. The root `render.yaml` declares a Docker web service and `/api/health` check.
-3. Review the proposed **free** plan and current Render terms before creating it. Do not accept a paid plan without deciding to incur charges. If the free plan is unavailable, choose an existing approved Docker host instead.
-4. Render generates `DJANGO_SECRET_KEY`; leave `DJANGO_DEBUG=false` and `DJANGO_REQUIRE_SECRET=true`. The app automatically permits Render’s injected `RENDER_EXTERNAL_HOSTNAME`. Add any custom domain to `DJANGO_ALLOWED_HOSTS`. Update `PROVIDER_USER_AGENT` for your project.
-5. Deploy and wait for the build and health check. A free service may sleep/cold-start; allow time before retrying. No persistent disk is required.
-6. At the assigned HTTPS address, verify the root page and assets; search for cities; submit a **live** trip departing soon. Confirm actual geometry, weather, route count disclosure, checkpoint details and recommendations. Scrub the forecast slider and verify it does not call `/api/plan` again. Run the explicit demo separately and verify its label stays visible.
-7. Record the assigned HTTPS URL and the results of those live checks in `docs/VALIDATION.md`. Only then use the URL in your assessment delivery.
+The last recorded hosted check on 15 October 2026 received `Weather service rate limit reached. Wait before retrying.` Geocoding and routes worked, but arrival forecasts were incomplete and no route was recommended. Successful local live checks on 16 October do not establish hosted readiness.
 
-## Required outbound destinations
+Pause provider requests after upstream throttling; repeated comparisons or redeployments do not establish quota reset. Shared outbound IPs can contribute to provider limits, but the specific cause and reset time of this incident were not established. See [validation](VALIDATION.md).
 
-Server: `router.project-osrm.org`, `geocoding-api.open-meteo.com`, `api.open-meteo.com` (HTTPS 443). Browser: `tile.openstreetmap.org` for tiles. Package/build destinations are handled by the cloud package-manager preset. No raw provider keys are required.
-
-Keep the map's OpenStreetMap attribution visible and preserve the TileLayer's `strict-origin-when-cross-origin` referrer policy. It overrides Django's document-wide `same-origin` policy so browser tile requests identify the site. Normal browser HTTP caching must remain enabled; do not add prefetch/offline/bulk tile downloads. Read the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/) before hosting. This community service has no SLA; larger deployments need a provider suited to their traffic.
-
-The previous cloud onboarding draft used the earlier tile hostname. If reusing that environment, update its browser allowlist to `tile.openstreetmap.org`; saving a draft does **not** apply its network policy or publish a snapshot. Local networking and public deployment networking are separately controlled by their hosts. Never disable TLS to work around denial.
-
-## Release validation
-
-```bash
-# Against a running local production server/container:
-python3 scripts/smoke.py --base-url http://127.0.0.1:8000
-# Against your actual deployed HTTPS URL, once available:
-python3 scripts/smoke.py --base-url https://YOUR-HOST --live
-```
-
-The default checks the labeled demo, assets and health. `--live` checks city geocoding and a real near-term route/weather plan; it makes external requests and consumes free quotas. A live failure is not replaced by fixtures. Inspect provider throttles/availability/network policy before retrying. The script reports forecast incompleteness as a failed live-readiness check.
-
-For production operations beyond this assessment, arrange truck-aware routing, commercial-use weather access, managed cache/quotas, monitoring and availability targets before taking real fleet traffic.
-
-## Hosted weather rate limit
-
-The hosted API reported `Weather service rate limit reached. Wait before retrying.` during the first live check and again about nine minutes later. Both alternatives had zero complete weather checkpoints; the app correctly withheld a recommendation. This is an upstream rate limit, distinct from the app's own request-budget messages. The public warning does not expose the provider's minute/hour/day reset reason or `Retry-After`, so the reset time is not established.
-
-[Render documents shared outbound IP ranges](https://render.com/docs/outbound-ip-addresses), and an [Open-Meteo discussion](https://github.com/open-meteo/open-meteo/discussions/115) describes shared-IP quotas affecting hosted callers. Shared egress quota is a plausible explanation here, not a confirmed diagnosis of the specific limit. Repeated Compare clicks and service redeploys do not establish that quota has reset; pause provider requests.
-
-If the free endpoint continues to reject normal evaluation traffic after its quota resets, ask Open-Meteo about suitable non-commercial access or use an approved customer account. The [customer API](https://open-meteo.com/en/pricing) requires its customer hostname **and** an `apikey` parameter. The current adapter has no configurable customer API-key parameter, so changing `WEATHER_BASE_URL` alone is insufficient. Add and test server-side key support before configuring customer credentials. No subscription or provider contact has been made.
+The free Open-Meteo endpoint is for non-commercial access. If changing to a customer API, implement and test server-side authentication first: changing `WEATHER_BASE_URL` alone does not add an API key. Never put secret credentials in browser code or `VITE_*` variables.

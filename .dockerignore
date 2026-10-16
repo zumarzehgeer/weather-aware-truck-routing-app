@@ -1,6 +1,11 @@
 .git
 .venv
 .env
+.env.*
+.vscode
+.playwright-mcp
+**/*.log
+**/.npm-cache
 **/__pycache__
 .pytest_cache
 frontend/node_modules
