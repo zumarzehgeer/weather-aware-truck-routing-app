@@ -1,5 +1,29 @@
 # Validation record
 
+## Interactive Playwright MCP verification · 16 October 2026
+
+These checks supersede the earlier local interface counts below. The configured Playwright MCP opened the locally running Vite app at `http://127.0.0.1:5173/` in its browser; the temporary browser launcher is no longer needed.
+
+- **21 Chromium browser tests passed** on the latest follow-up verification, with one intentionally skipped duplicate of the multi-width test. Desktop and phone coverage includes map/route selection, endpoint popups, forecast scrubbing without API calls, layers, validation, failed providers, incomplete/No Travel exclusions, keyboard city search, guide focus, mode-switch suggestion resets, and widths from 320 to 1440 pixels.
+- **120 backend tests and 6 frontend unit tests passed** on the follow-up verification. The production TypeScript/Vite build, Django system checks, and static collection passed. Pytest reported a non-failing warning that its existing cache directory was not writable; all backend assertions passed.
+- Interactive testing found and repaired guide focus loss on dismissal, city suggestions failing to reopen with arrow keys, and phone popup obstruction/clipping. Map fits now stop previous camera motion and apply immediately, preventing a fit/popup panning race. Each repair has a browser regression check.
+- A second interactive pass found that consecutive submissions producing the same validation message did not restore focus, because React batched the unchanged error value. Focus now also follows the submission attempt; repeated empty/excessive loads regain focus without sending requests. Both desktop and phone regression cases pass. The MCP browser reconfirmed keyboard route selection and ordinary popup/guide close-button access at 320px.
+- Another MCP pass found that Live → Demo → Live could show suggestions from an earlier search under a reset city (for example, Denver suggestions under Chicago). Selected-place changes now abort old searches and clear cached suggestions, active options, loading/errors, and dropdown state. Regression cases cover both origin and destination on desktop and phone. Delayed search responses did not overwrite a newer query. A controlled pending demo request also verified single submission on double click, locked inputs, unchanged evaluated labels, guide continuity, and a reset forecast hour after completion. Route changes closed old checkpoint popups, and an open corridor popup followed timeline changes without altering arrival risk.
+- **Live local Chicago–Detroit trip passed** at 50-mile spacing: real geocoding selected Chicago; OSRM supplied two distinct alternatives (about 281 and 298 miles), all **14 arrival checkpoints** had complete Open-Meteo forecasts, and Route A was recommended. The UI disclosed that the provider returned two routes. No synthetic fallback was used.
+- The MCP browser also verified 390px and 320px popups using ordinary close-button clicks, actual geographic tiles, the independent +48h timeline, and focus restoration from all guide openers. Its console reported **zero errors**.
+- The live desktop screenshot is saved locally under `.playwright-mcp/waycast-live-desktop.png`. This is local verification; the hosted Render weather limitation below has **not** been rechecked, and these changes have not been pushed or deployed.
+
+## Local interface redesign · 16 October 2026
+
+The Spotter-inspired navy/turquoise interface is implemented locally. Routing, risk classification, and provider adapters were not changed.
+
+- Production TypeScript/Vite build: **passed**.
+- Frontend unit tests: **6 passed**.
+- Playwright Chromium: **13 passed**, with the duplicate mobile invocation of the multi-width desktop test intentionally skipped. Covers existing desktop/mobile workflows, provider warnings above the map, the wide comparison rail, stacked phone cards, and no page overflow at 1440, 1024, 820, 390, and 320 pixels. Narrow-screen basemap warning and attribution overlap was found and repaired.
+- Django system check and static collection: **passed**. Manrope font files and its license are included in the static build.
+- Visual checks: geographic OpenStreetMap tiles, empty/demo states, wide layout, phone route cards, and the horizontally scrollable risk-guide table checked in the local browser. Automated tests suppress basemap requests and use synthetic data or explicit failure fixtures.
+- Live weather was **not rechecked**; the hosted provider limitation below remains the last recorded result. This redesign has not been pushed or deployed.
+
 ## Public Render deployment · 15 October 2026
 
 URL: **https://weather-aware-truck-routing-app.onrender.com/**. The user's Render screenshot shows deploy succeeded/live for commit **`f32f764`**, with Gunicorn listening on Render's injected port. This deployment used the manual Docker Web Service flow rather than creating a Blueprint.

@@ -4,9 +4,39 @@ A React + Django assessment application for comparing route weather exposure at 
 
 **Status:** deployed at **[weather-aware-truck-routing-app.onrender.com](https://weather-aware-truck-routing-app.onrender.com/)**. The original ten review findings have been repaired, along with additional boundary/concurrency fixes. Hosted health, frontend assets and synthetic-demo desktop/mobile interactions pass. **Hosted live weather is currently rate-limited by Open-Meteo**: real geocoding and routes work, but unavailable forecasts remain unknown and prevent recommendations. See the [repair review](docs/CODE_REVIEW_FIXES.md) and [current validation](docs/VALIDATION.md). No assessment submission or employer contact has been made.
 
+## Interface design
+
+Waycast uses a navy and turquoise palette inspired by [Spotter](https://spotter.ai/), with its own name and identity. Wide screens place trip inputs, the geographic map, and route comparisons in three columns. Smaller screens move comparisons below the map; phone layouts stack the route cards. Weather risk colors retain their original meaning, and provider warnings appear above the results. Keyboard focus and reduced-motion preferences are supported.
+
+Manrope Variable is bundled locally through Fontsource. Its SIL Open Font License and copyright notice are included in [Manrope-OFL.txt](frontend/public/assets/Manrope-OFL.txt). The redesign is local until committed and deployed.
+
 ## Run locally
 
 Requires **Python 3.12**, **Node 24**, and npm. No database server is needed. The public non-commercial routing, city-search and weather adapters and the standard OpenStreetMap basemap require no API key. Provider usage policies still apply.
+
+For **Windows Git Bash**, open two terminals at the repository root:
+
+```bash
+# Terminal 1: Django backend (port 8000)
+npm run backend
+```
+
+```bash
+# Terminal 2: Vite frontend (port 5173)
+npm run frontend
+```
+
+Open **http://localhost:5173**. Press **Ctrl+C** in each terminal to stop its server. No virtual-environment activation or directory changes are needed. The backend selects `.venv/Scripts/python.exe` on Windows and `.venv/bin/python` on Linux/macOS, loads an optional root `.env`, and enables local debugging by default. Both servers reload when their source changes. These commands use the existing dependencies; no root `npm install` is needed. Vite refuses to start if port 5173 is already in use, so stop an older preview first.
+
+If dependencies have not been installed yet, run this once in Git Bash:
+
+```bash
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+npm --prefix frontend ci
+```
+
+For Linux/macOS, the existing setup and combined startup scripts remain available:
 
 ```bash
 bash scripts/setup.sh
@@ -166,6 +196,14 @@ See [.env.example](.env.example). The current providers require no credentials f
 If Chromium is already installed, skip its download and run `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e` inside `frontend`. Playwright starts a fresh Django server on 8000, so stop your development server first. Tests use the real Django demo endpoint plus explicitly intercepted failure fixtures; they do not consume live weather quotas. Desktop and mobile suites cover route selection, real map checkpoint popups, layer toggles, slider updates without API calls, guide modal, mobile overflow, search keyboard selection, validation, loading, errors, missing forecasts and No Travel messages.
 
 On Windows, backend tests use `.\.venv\Scripts\python.exe -m pytest -q`. Inside `frontend`, run `npm.cmd run test:unit`, `npx.cmd playwright install chromium`, and `npm.cmd run test:e2e`; Playwright selects the platform's Python path automatically. Unit tests verify request cancellation/deadlines, response-body deadlines, cleanup and duration rounding. Browser tests also cover both endpoint popups, unresolved-place swapping and disabled demo entry points. Automated browser runs abort basemap requests; actual tile content was verified separately.
+
+To test servers that are already running, use this from the repo root in Git Bash:
+
+```bash
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npm --prefix frontend run test:e2e
+```
+
+This mode uses the supplied URL without starting or stopping your development servers. The browser suite includes guide focus restoration, reopening city suggestions with arrow keys, and phone popups that stay inside the map and close without obstruction. Interactive agent testing uses the configured Playwright MCP browser.
 
 Backend tests cover every supplied threshold/load boundary, unit conversion, numerical conversion boundaries, annotation-based ETAs, endpoint/remainder sampling, weighted aggregation, each ranking priority, unknown/No Travel exclusion, DST validation, malformed inputs, provider timeout/rate limit/malformed responses, cache reuse and fewer-route disclosure. See [validation evidence and remaining checks](docs/VALIDATION.md).
 

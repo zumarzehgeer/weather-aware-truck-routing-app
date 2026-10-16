@@ -153,13 +153,19 @@ function RouteCard({
 function Guide({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    ref.current?.showModal();
-    return () => ref.current?.close();
+    const dialog = ref.current;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
   }, []);
   return (
     <dialog
       ref={ref}
       className='guide-dialog'
+      aria-labelledby='risk-guide-title'
       onCancel={onClose}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -169,8 +175,7 @@ function Guide({ onClose }: { onClose: () => void }) {
         <button type='button' className='dialog-close' aria-label='Close risk guide' onClick={onClose}>
           <X size={20} />
         </button>
-        <span className='eyebrow'>THE METHOD</span>
-        <h2>Weather risk, explained.</h2>
+        <h2 id='risk-guide-title'>Weather risk, explained.</h2>
         <p>Each checkpoint uses the highest applicable condition, including the supplied load rules.</p>
         <div className='table-scroll'>
           <table>
@@ -242,6 +247,7 @@ export default function App() {
   const [hour, setHour] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [submissionAttempt, setSubmissionAttempt] = useState(0);
   const [guide, setGuide] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [displayZone, setDisplayZone] = useState(zone);
@@ -256,12 +262,14 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (error) errorRef.current?.focus();
-  }, [error]);
+  }, [error, submissionAttempt]);
   function changed() {
     if (plan) setDirty(true);
   }
   async function compare(useDemo = demo) {
     if (activeRequest.current) return;
+    // Re-focus repeated validation messages even when React batches the same error value.
+    setSubmissionAttempt((attempt) => attempt + 1);
     setError('');
     const from = useDemo ? chicago : origin,
       to = useDemo ? detroit : destination;
@@ -323,13 +331,11 @@ export default function App() {
           </span>
           <span className='brand-divider' />
           <span className='brand-descriptor'>
-            WEATHER-AWARE
-            <br />
-            TRUCK ROUTING
+            Weather-aware routing
           </span>
         </a>
         <div className='header-actions'>
-          <span className='assessment-label'>THE ROAD AHEAD, IN FOCUS</span>
+          <span className='header-context'><Compass size={15} />Route planner</span>
           <button type='button' onClick={() => setGuide(true)}>
             <Info size={16} />
             Risk guide
@@ -339,19 +345,14 @@ export default function App() {
       <main className='workspace'>
         <div className='page-intro'>
           <div>
-            <div className='eyebrow'>
-              <span />
-              YOUR PLANNING WORKSPACE
-            </div>
-            <h1>A clearer road ahead.</h1>
-            <p>Three routes. Real forecasts. A more informed journey.</p>
+            <h1>Weather-aware route planning</h1>
+            <p>See the conditions ahead. Compare the miles that matter.</p>
           </div>
           <div className='intro-note'>
             <CloudSun size={31} strokeWidth={1.3} />
             <span>
-              Built around the weather.
-              <br />
-              <strong>Designed for the driver.</strong>
+              Arrival-time weather
+              <strong>48-hour corridor outlook</strong>
             </span>
           </div>
         </div>
@@ -363,7 +364,6 @@ export default function App() {
                   <Compass size={18} />
                 </span>
                 <h2>Plan your trip</h2>
-                <span className='step-label'>01 / 02</span>
               </div>
               <div className='mode-switch' aria-label='Data mode'>
                 <button
@@ -549,14 +549,14 @@ export default function App() {
               </form>
               <p className='form-footnote'>
                 <ShieldCheck size={13} />
-                No account. Just a better view of your trip.
+                Weather evaluated at each checkpoint's arrival
               </p>
             </section>
             <div className='driver-note'>
               <span className='section-icon'>
                 <Wind size={19} />
               </span>
-              <h3>A little weight matters.</h3>
+              <h3>Load changes wind risk.</h3>
               <p>
                 Your load changes how wind risk is classified. We apply the supplied rules at every weather checkpoint.
               </p>
@@ -574,120 +574,149 @@ export default function App() {
             </div>
           </aside>
           <div className='results-column' ref={resultsRef}>
-            {plan?.mode === 'demo' && (
-              <div className='demo-banner'>
-                <Sparkles size={15} />
-                <span>
-                  <strong>Demo mode</strong> · Synthetic routes and forecasts for interaction testing. Not a live trip.
-                </span>
-              </div>
-            )}
-            {dirty && plan && (
-              <div className='stale-banner' role='status'>
-                <Info size={16} />
-                Inputs changed. Map and results still show the last evaluated trip. Compare again to update.
-              </div>
-            )}
-            <TripMap
-              plan={plan}
-              selected={selected}
-              onSelect={setSelected}
-              hour={hour}
-              zone={displayZone}
-              loading={loading}
-              demoEnabled={demoEnabled}
-              onDemo={() => {
-                if (demoEnabled) compare(true);
-              }}
-            />
-            <section className={`forecast-panel ${!plan ? 'disabled' : ''}`} aria-label='Corridor forecast'>
-              <div className='forecast-heading'>
-                <div className='forecast-title'>
-                  <span className='section-icon'>
-                    <CloudSun size={19} />
+            <div className='results-status'>
+              {plan?.mode === 'demo' && (
+                <div className='demo-banner'>
+                  <Sparkles size={15} />
+                  <span>
+                    <strong>Demo mode</strong> · Synthetic routes and forecasts for interaction testing. Not a live trip.
                   </span>
-                  <div>
-                    <h2>Weather along the corridor</h2>
-                    <p>Hourly snapshot · independent of your arrival-time analysis</p>
-                  </div>
                 </div>
-                <div className='forecast-time'>
-                  <span>FORECAST AT</span>
-                  <strong>
-                    {plan ? displayTime(plan.corridor.timestamps[hour], displayZone, true) : 'Plan a trip to explore'}
-                  </strong>
+              )}
+              {dirty && plan && (
+                <div className='stale-banner' role='status'>
+                  <Info size={16} />
+                  Inputs changed. Map and results still show the last evaluated trip. Compare again to update.
                 </div>
-              </div>
-              <div className='slider-row'>
-                <span>+{hour}h</span>
-                <input
-                  aria-label='Forecast hour'
-                  type='range'
-                  min='0'
-                  max='48'
-                  step='1'
-                  value={hour}
-                  disabled={!plan}
-                  onChange={(e) => setHour(Number(e.target.value))}
-                />
-                <span>48h</span>
-              </div>
-              <div className='slider-ticks'>
-                <span>Next full hour</span>
-                <span>+12h</span>
-                <span>+24h</span>
-                <span>+36h</span>
-                <span>+48h</span>
-              </div>
-              <div className='forecast-legend'>
-                <span>WEATHER RISK</span>
-                {Object.entries(riskColors).map(([label, color]) => (
-                  <span key={label}>
-                    <i style={{ background: color }} />
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </section>
-            <div className='alternatives-heading'>
-              <div>
-                <h2>{plan ? 'Your route comparison' : 'Good decisions start with the full picture.'}</h2>
-                <p>
-                  {plan
-                    ? `Evaluated for ${plan.load_lb.toLocaleString()} lb · ${plan.spacing_miles}-mile checkpoints · ${displayTime(plan.departure, displayZone, true)}`
-                    : 'Compare travel time, weather exposure, and the conditions that matter.'}
-                </p>
-              </div>
-              {plan && <span>{plan.routes.length} ROUTES</span>}
+              )}
+              {plan && plan.warnings.length > 0 && (
+                <div className='plan-warnings' role='status'>
+                  {plan.warnings.map((warning) => <p key={warning}><Info size={15} />{warning}</p>)}
+                </div>
+              )}
             </div>
-            {plan ? (
-              <>
-                <div className='route-cards'>
-                  {plan.routes.map((route, index) => (
-                    <RouteCard
-                      key={route.id}
-                      route={route}
-                      index={index}
-                      selected={selected === route.id}
-                      recommended={plan.recommended_id === route.id}
-                      zone={displayZone}
-                      onSelect={() => setSelected(route.id)}
-                    />
-                  ))}
-                </div>
-                <div className={`recommendation ${!plan.recommended_id ? 'unavailable' : ''}`}>
-                  <span className='recommendation-icon'>
-                    {plan.recommended_id ? <ShieldCheck size={21} /> : <Info size={21} />}
-                  </span>
-                  <div>
-                    <h3>
-                      {plan.recommended_id
-                        ? `Why ${plan.routes.find((r) => r.id === plan.recommended_id)?.name}?`
-                        : 'No route can be recommended'}
-                    </h3>
-                    <p>{plan.explanation}</p>
+            <div className='results-workspace'>
+              <div className='map-column'>
+                <TripMap
+                  plan={plan}
+                  selected={selected}
+                  onSelect={setSelected}
+                  hour={hour}
+                  zone={displayZone}
+                  loading={loading}
+                  demoEnabled={demoEnabled}
+                  onDemo={() => {
+                    if (demoEnabled) compare(true);
+                  }}
+                />
+                <section className={`forecast-panel ${!plan ? 'disabled' : ''}`} aria-label='Corridor forecast'>
+                  <div className='forecast-heading'>
+                    <div className='forecast-title'>
+                      <span className='section-icon'>
+                        <CloudSun size={19} />
+                      </span>
+                      <div>
+                        <h2>Weather along the corridor</h2>
+                        <p>Hourly snapshot · independent of your arrival-time analysis</p>
+                      </div>
+                    </div>
+                    <div className='forecast-time'>
+                      <span>Forecast at</span>
+                      <strong>
+                        {plan ? displayTime(plan.corridor.timestamps[hour], displayZone, true) : 'Plan a trip to explore'}
+                      </strong>
+                    </div>
                   </div>
+                  <div className='slider-row'>
+                    <span>+{hour}h</span>
+                    <input
+                      aria-label='Forecast hour'
+                      type='range'
+                      min='0'
+                      max='48'
+                      step='1'
+                      value={hour}
+                      disabled={!plan}
+                      onChange={(e) => setHour(Number(e.target.value))}
+                    />
+                    <span>48h</span>
+                  </div>
+                  <div className='slider-ticks'>
+                    <span>Next full hour</span>
+                    <span>+12h</span>
+                    <span>+24h</span>
+                    <span>+36h</span>
+                    <span>+48h</span>
+                  </div>
+                  <div className='forecast-legend'>
+                    <span>Weather risk</span>
+                    {Object.entries(riskColors).map(([label, color]) => (
+                      <span key={label}>
+                        <i style={{ background: color }} />
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+              </div>
+              <section className='route-comparison' aria-label='Route comparison'>
+                <div className='alternatives-heading'>
+                  <div>
+                    <h2>{plan ? 'Your route comparison' : 'Route comparison'}</h2>
+                    <p>
+                      {plan
+                        ? `Evaluated for ${plan.load_lb.toLocaleString()} lb · ${plan.spacing_miles}-mile checkpoints · ${displayTime(plan.departure, displayZone, true)}`
+                        : 'Your alternatives will appear here.'}
+                    </p>
+                  </div>
+                  {plan && <span className='route-count'>{plan.routes.length} routes</span>}
                 </div>
+                {plan ? (
+                  <>
+                    <div className='route-cards'>
+                      {plan.routes.map((route, index) => (
+                        <RouteCard
+                          key={route.id}
+                          route={route}
+                          index={index}
+                          selected={selected === route.id}
+                          recommended={plan.recommended_id === route.id}
+                          zone={displayZone}
+                          onSelect={() => setSelected(route.id)}
+                        />
+                      ))}
+                    </div>
+                    <div className={`recommendation ${!plan.recommended_id ? 'unavailable' : ''}`}>
+                      <span className='recommendation-icon'>
+                        {plan.recommended_id ? <ShieldCheck size={21} /> : <Info size={21} />}
+                      </span>
+                      <div>
+                        <h3>
+                          {plan.recommended_id
+                            ? `Why ${plan.routes.find((r) => r.id === plan.recommended_id)?.name}?`
+                            : 'No route can be recommended'}
+                        </h3>
+                        <p>{plan.explanation}</p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className='comparison-empty'>
+                    <span className='comparison-empty-icon'><RouteIcon size={26} /></span>
+                    <h3>A clearer choice for every trip.</h3>
+                    <p>Compare your trip to see the travel time and weather exposure of each available route.</p>
+                    <div className='comparison-features'>
+                      <span><Gauge size={17} />Travel time and distance</span>
+                      <span><Waves size={17} />Wind, rain and snow</span>
+                      <span><ShieldCheck size={17} />Risk-based recommendation</span>
+                    </div>
+                    <small>Up to three distinct alternatives, based on provider availability.</small>
+                  </div>
+                )}
+              </section>
+            </div>
+            {plan && (
+              <>
                 <details className='checkpoint-details'>
                   <summary>
                     Arrival-time checkpoints · {plan.routes.find((r) => r.id === selected)?.name}
@@ -728,16 +757,6 @@ export default function App() {
                     </table>
                   </div>
                 </details>
-                {plan.warnings.length > 0 && (
-                  <div className='plan-warnings' role='status'>
-                    {plan.warnings.map((warning) => (
-                      <p key={warning}>
-                        <Info size={15} />
-                        {warning}
-                      </p>
-                    ))}
-                  </div>
-                )}
                 <p className='data-attribution'>
                   {plan.mode === 'demo' ? (
                     'Synthetic demonstration data'
@@ -756,43 +775,13 @@ export default function App() {
                   · Generated {displayTime(plan.generated_at, displayZone, true)} · ETA excludes breaks & live traffic
                 </p>
               </>
-            ) : (
-              <div className='empty-features'>
-                <div>
-                  <RouteIcon size={20} />
-                  <h3>Compare the options</h3>
-                  <p>
-                    Up to three distinct routes,
-                    <br />
-                    all on one map.
-                  </p>
-                </div>
-                <div>
-                  <Waves size={20} />
-                  <h3>Look along the route</h3>
-                  <p>
-                    Arrival-time wind, rain,
-                    <br />
-                    and snow at each checkpoint.
-                  </p>
-                </div>
-                <div>
-                  <Gauge size={20} />
-                  <h3>Understand the tradeoffs</h3>
-                  <p>
-                    Distance-weighted risk,
-                    <br />
-                    with a clear recommendation.
-                  </p>
-                </div>
-              </div>
             )}
           </div>
         </div>
         <footer className='app-footer'>
           <span>
             <CloudSun size={16} />
-            waycast. <span>A forecast for the road ahead.</span>
+            waycast. <span>Weather-aware truck routing</span>
           </span>
           <button type='button' onClick={() => setGuide(true)}>
             How we calculate risk

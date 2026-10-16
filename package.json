@@ -1,0 +1,8 @@
+{
+  "name": "waycast-local",
+  "private": true,
+  "scripts": {
+    "backend": "node scripts/backend.mjs",
+    "frontend": "npm --prefix frontend run dev -- --strictPort"
+  }
+}

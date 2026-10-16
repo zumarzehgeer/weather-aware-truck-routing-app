@@ -10,5 +10,6 @@ staticfiles/
 *.sqlite3
 test-results/
 playwright-report/
+.playwright-mcp/
 .DS_Store
 *.tsbuildinfo
