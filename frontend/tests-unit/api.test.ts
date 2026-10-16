@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { api } from '../src/api.ts'
-import { duration } from '../src/types.ts'
+import { api } from '../src/lib/api.ts'
+import { duration } from '../src/utils/format.ts'
 
 function pending(signal: AbortSignal | null | undefined): Promise<never> {
   return new Promise((_, reject) => {
@@ -10,7 +10,7 @@ function pending(signal: AbortSignal | null | undefined): Promise<never> {
   })
 }
 
-test('caller signal retains the request deadline and removes its listener', async t => {
+test('caller signal retains the request deadline and removes its listener', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const caller = new AbortController()
   const remove = t.mock.method(caller.signal, 'removeEventListener')
@@ -22,40 +22,54 @@ test('caller signal retains the request deadline and removes its listener', asyn
   assert.equal(remove.mock.callCount(), 1)
 })
 
-test('caller cancellation preserves its reason and cleans up', async t => {
+test('caller cancellation preserves its reason and cleans up', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const caller = new AbortController()
   const remove = t.mock.method(caller.signal, 'removeEventListener')
   t.mock.method(globalThis, 'fetch', (_path, options) => pending(options?.signal))
   const reason = new DOMException('Search superseded', 'AbortError')
-  const result = assert.rejects(api('/search', { signal: caller.signal }), error => error === reason)
+  const result = assert.rejects(
+    api('/search', { signal: caller.signal }),
+    (error) => error === reason,
+  )
   caller.abort(reason)
   await result
   assert.equal(remove.mock.callCount(), 1)
   t.mock.timers.tick(110_000)
 })
 
-test('an already cancelled request is not allowed to wait for its deadline', async t => {
+test('an already cancelled request is not allowed to wait for its deadline', async (t) => {
   const caller = new AbortController()
   caller.abort()
   t.mock.method(globalThis, 'fetch', (_path, options) => pending(options?.signal))
   await assert.rejects(api('/search', { signal: caller.signal }), { name: 'AbortError' })
 })
 
-test('deadline still applies while reading the response body', async t => {
+test('deadline still applies while reading the response body', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   let reading!: () => void
-  const started = new Promise<void>(resolve => { reading = resolve })
-  t.mock.method(globalThis, 'fetch', async (_path, options) => ({
-    ok: true, json: () => { reading(); return pending(options?.signal) },
-  } as Response))
+  const started = new Promise<void>((resolve) => {
+    reading = resolve
+  })
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async (_path, options) =>
+      ({
+        ok: true,
+        json: () => {
+          reading()
+          return pending(options?.signal)
+        },
+      }) as Response,
+  )
   const result = assert.rejects(api('/plan'), /timed out/)
   await started
   t.mock.timers.tick(110_000)
   await result
 })
 
-test('success clears deadline and detaches caller cancellation', async t => {
+test('success clears deadline and detaches caller cancellation', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const caller = new AbortController()
   let requestSignal: AbortSignal | null | undefined

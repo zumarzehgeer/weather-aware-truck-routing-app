@@ -1,8 +1,22 @@
 # Waycast · Weather-Aware Truck Routing
 
-Waycast compares driving routes using forecast weather at a truck's estimated arrival times. It shows route alternatives, load-sensitive weather risk, checkpoint details, and a separate 48-hour corridor forecast.
+Waycast is a full-stack weather-aware truck route planner built for the Spotter AI developer assessment. It compares driving routes using forecast weather at the truck's estimated arrival times, explains load-sensitive risk, and provides a separate 48-hour corridor outlook.
 
-**Hosted application:** [weather-aware-truck-routing-app.onrender.com](https://weather-aware-truck-routing-app.onrender.com/). Public providers can throttle requests; the last hosted check encountered a weather rate limit. The app shows missing forecasts as Unknown and withholds recommendations for incomplete routes. A clearly labelled synthetic demo is available independently. See [validation](docs/VALIDATION.md) for dated results.
+**Application:** [weather-aware-truck-routing-app.onrender.com](https://weather-aware-truck-routing-app.onrender.com/) · **Repository:** [zumarzehgeer/weather-aware-truck-routing-app](https://github.com/zumarzehgeer/weather-aware-truck-routing-app)
+
+[Run locally](#run-locally) · [Code tour](#architecture) · [Risk model](#weather-and-risk-model) · [API](#api) · [Tests](#verification) · [Deployment](#deployment-and-limitations)
+
+**Deployment note:** The last recorded hosted check on **15 October 2026** encountered an upstream weather rate limit. Missing forecasts remain Unknown, and incomplete routes cannot be recommended. The labelled synthetic demo works independently of live providers. Subsequent local refactoring and successful local live checks do not establish that the hosted deployment is current or that its provider quota has reset. See the [validation record](docs/VALIDATION.md).
+
+## Technology
+
+| Area | Stack |
+|---|---|
+| Interface | React, TypeScript, Vite, Leaflet / React Leaflet, Lucide icons |
+| API and external data | Django, HTTPX, OSRM, Open-Meteo geocoding and forecasts |
+| Production | Gunicorn, WhiteNoise, Docker, Render configuration |
+| Verification | pytest / pytest-django, Node test runner, Playwright Chromium |
+| Code style | Black, Prettier, EditorConfig, LF line endings |
 
 ## Features
 
@@ -21,13 +35,20 @@ The navy/turquoise interface is inspired by [Spotter](https://spotter.ai/) and u
 
 Requirements: **Python 3.12 or 3.13**, **Node 24**, and npm. CI and Docker use Python 3.12. No database setup, migrations, or API keys are needed for the default public providers.
 
+Clone the repository, then run all commands below from its root:
+
+```bash
+git clone https://github.com/zumarzehgeer/weather-aware-truck-routing-app.git
+cd weather-aware-truck-routing-app
+```
+
 ### Windows · Git Bash
 
-Run once from the repository root:
+Install the dependencies once. `requirements-dev.txt` includes the application requirements and Python formatter:
 
 ```bash
 python -m venv .venv
-.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
 npm --prefix frontend ci
 ```
 
@@ -43,45 +64,88 @@ npm run backend
 npm run frontend
 ```
 
-Open **http://localhost:5173**. Stop each server with **Ctrl+C**. Both reload source changes. No environment activation or root `npm install` is needed. The frontend refuses to start if port 5173 is occupied. In PowerShell, use `npm.cmd` instead of `npm` if execution policy blocks npm's script.
+Open **http://localhost:5173**. The API health endpoint is **http://127.0.0.1:8000/api/health**. Stop each server with **Ctrl+C**. Both reload source changes. No environment activation or root `npm install` is needed. The frontend refuses to start if port 5173 is occupied. In PowerShell, use `npm.cmd` instead of `npm` if execution policy blocks npm's script.
 
 ### Linux / macOS
 
 ```bash
 bash scripts/setup.sh
+.venv/bin/python -m pip install -r requirements-dev.txt
 npm run backend
 # In a second terminal:
 npm run frontend
 ```
 
-Alternatively, `bash scripts/dev.sh` starts both servers together. Vite proxies `/api` to Django on port 8000. The backend launcher selects the platform's virtual-environment Python and loads an optional root `.env`; `dev.sh` also loads `.env`. Django and the production container do not auto-load it.
+`setup.sh` installs dependencies, builds the frontend, collects static assets and checks Django. Alternatively, after setup, `bash scripts/dev.sh` starts both servers together. Vite proxies `/api` to Django on port 8000. The backend launcher selects the platform's virtual-environment Python and loads an optional root `.env`; `dev.sh` also loads `.env`. Django and the production container do not auto-load it.
+
+Default local settings work without an `.env`. To customize them, run `cp .env.example .env` and edit the copy. Keep real secrets out of Git; production requires its own random secret.
 
 ### Try the demo
 
-Select **Demo trip**, set departure roughly one hour ahead in the displayed timezone, and click **Compare demo routes**. Demo endpoints are fixed to Chicago–Detroit; departure, load and checkpoint spacing remain editable. Select an alternative, open a checkpoint, and explore the timeline. Changing trip inputs marks the existing analysis as outdated until another comparison succeeds.
+1. Select **Demo trip**. Chicago–Detroit endpoints are fixed and clearly labelled as synthetic.
+2. Set departure roughly one hour ahead in the displayed timezone; start with **32,000 lb** and **25-mile** checkpoints.
+3. Click **Compare demo routes** and read the route cards and recommendation explanation.
+4. Select another route, click a checkpoint, or expand **Arrival-time checkpoints** to inspect the weather behind its score.
+5. Move the forecast slider or toggle map layers. The corridor snapshot changes independently of arrival-time route scores.
+6. Edit the load or another trip input. The stale-results notice preserves the last evaluated labels until you compare again.
 
 For live data, choose **Live routes** and select both cities from search results. Typing an unresolved city name alone is insufficient. Actual routes and forecasts depend on provider availability.
 
 ## Architecture
 
 ```text
-frontend/src/         React + TypeScript + Leaflet interface
+frontend/src/
+  App.tsx             Page composition and risk-guide visibility
+  hooks/              Trip inputs, request lifecycle and evaluated-result state
+  components/         Trip form, search, comparison, forecast and checkpoint table
+    map/              Leaflet viewport, route paths, forecast cells and checkpoint layers
+  lib/                HTTP client with cancellation, deadlines and structured errors
+  utils/              Time, duration and measurement formatting
+  types.ts            API response types
+  constants.ts        Demo cities, timezones and display colors
+  styles/             Base, layout, form, map, results, guide and responsive styles
 backend/config/       Django settings, URLs and WSGI
 backend/routing/
-  views.py            Request validation and application rate limits
-  providers.py        OSRM, geocoding, weather adapters and TTL caches
+  views.py            Thin HTTP endpoints and application rate limits
+  validation.py       Trip input checks, timezone conversion and DST handling
+  providers/
+    common.py         Shared HTTP error mapping, cache keys and numeric validation
+    geocoding.py      City/town search adapter
+    routing.py        OSRM alternatives and validated edge timing
+    weather.py        Batched forecasts, unit conversion, caching and quota budgets
   geometry.py         Edge-based checkpoint sampling, ETAs and corridor grid
   risk.py             Pure classification, aggregation and route ranking
   service.py          Trip orchestration and forecast assembly
   demo.py             Explicit synthetic fixtures
 backend/routing/tests/  Backend regression tests
-frontend/tests/         Desktop/mobile Playwright tests
+frontend/tests/         Map, planner, place-search and accessibility browser suites
 frontend/tests-unit/    Request and formatting unit tests
 scripts/                Setup, local startup, production startup and smoke checks
 docs/                   Deployment instructions and validation summary
 ```
 
 The React app and JSON API share an origin in production. Gunicorn and WhiteNoise serve the Django API and built frontend. No persistence or authentication is required. Production uses one Gunicorn worker with four threads so in-memory cache and quota controls are shared. Multiple workers/replicas require shared caching and distributed quota control.
+
+```mermaid
+flowchart LR
+  UI[Trip form] --> Hook[useTripPlanner]
+  Hook --> API[Django views and validation]
+  API --> Service[Trip service]
+  Service --> Providers[Routing and weather adapters]
+  Providers --> Analysis[Checkpoint geometry and risk rules]
+  Analysis --> Results[Map, route cards and forecast timeline]
+```
+
+### Suggested reading order
+
+1. [App.tsx](frontend/src/App.tsx) composes the page; [useTripPlanner.ts](frontend/src/hooks/useTripPlanner.ts) owns editable inputs, submission guards, stale results and the last successful analysis.
+2. [TripSidebar.tsx](frontend/src/components/TripSidebar.tsx) renders the form; [TripResults.tsx](frontend/src/components/TripResults.tsx) composes notices, the map, timeline, comparison and checkpoint table. Map layers are isolated under [components/map](frontend/src/components/map).
+3. [views.py](backend/routing/views.py) receives the request and delegates input checks to [validation.py](backend/routing/validation.py).
+4. [service.py](backend/routing/service.py) is the backend entry point for the planning pipeline: routes → checkpoint sampling → weather → risk summaries → recommendation and corridor frames.
+5. [geometry.py](backend/routing/geometry.py) handles locations and timing; [risk.py](backend/routing/risk.py) contains the pure classification, aggregation and ranking rules. External calls live in [providers](backend/routing/providers).
+6. [Backend regressions](backend/routing/tests) and [browser suites](frontend/tests) show boundary cases and end-to-end behavior. Shared test inputs live in backend `tests/factories.py` and browser `tests/fixtures.ts`.
+
+Components render the interface, the hook coordinates client state, provider adapters handle external data, and the geometry/risk modules contain the domain calculations. Backend modules do not depend on frontend code. Synthetic data is isolated in `demo.py` and selected explicitly by the service.
 
 ## Weather and risk model
 
@@ -164,6 +228,20 @@ See [.env.example](.env.example). Keep real `.env` files and secret values out o
 
 ## Verification
 
+Last local verification after the structural refactor, **16 October 2026**:
+
+| Check | Result |
+|---|---|
+| Backend regression tests | 120 passed |
+| Frontend unit tests | 6 passed |
+| Desktop / phone browser tests | 21 passed; one duplicate mobile layout check intentionally skipped |
+| Production build, Django checks, static collection and formatting | Passed |
+| Built-app synthetic smoke check | Passed |
+
+These are local results, not a claim of hosted live-provider availability. Full context is in [docs/VALIDATION.md](docs/VALIDATION.md).
+
+### Run the suites
+
 From the repository root in Windows Git Bash:
 
 ```bash
@@ -185,13 +263,40 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npm --prefix frontend run test:e2e
 
 Browser tests use the real Django synthetic-demo endpoint and explicit failure fixtures, and suppress basemap requests. They do not consume live weather quotas or establish live provider readiness. Backend tests cover risk boundaries, geometry/timing, input validation, provider responses, caches and concurrency. Frontend unit tests cover request cancellation/deadlines and formatting. CI runs setup, tests and the production build. See the [validation summary](docs/VALIDATION.md).
 
-For smoke checks against a running deployment:
+### Code style
+
+Python uses Black; TypeScript, JSX, CSS and frontend configuration use Prettier. Editor defaults are in `.editorconfig`, and Git preserves LF line endings. The setup steps above install both formatters. If you installed only runtime dependencies, install `requirements-dev.txt` before running Black.
+
+Check formatting from the repository root:
+
+```bash
+.venv/Scripts/python.exe -m black --check backend scripts
+npm --prefix frontend run format:check
+```
+
+To apply formatting, omit Black's `--check` and use `npm --prefix frontend run format`. On Linux/macOS, use `.venv/bin/python`. CI runs both formatting checks alongside the regression suites. Formatter dependencies are for development; the Docker runtime installs `requirements.txt` only.
+
+### Smoke checks
+
+Check a running deployment separately from the regression suites:
 
 ```bash
 .venv/Scripts/python.exe scripts/smoke.py --base-url https://YOUR-HOST
 # Optional real-provider check; consumes provider quota:
 .venv/Scripts/python.exe scripts/smoke.py --base-url https://YOUR-HOST --live
 ```
+
+Replace `https://YOUR-HOST` with the actual deployment URL or a local Django server serving the built frontend. The default checks health, frontend assets and synthetic planning. `--live` additionally exercises real providers and fails when arrival forecasts are incomplete. See [deployment instructions](docs/DEPLOYMENT.md) for building and serving the production app.
+
+### Common setup issues
+
+| Symptom | What to check |
+|---|---|
+| Backend reports a missing Python environment | Create `.venv` in the repository root and install the requirements for your platform. |
+| Port 5173 or 8000 is occupied | Stop the older development server. Browser tests can reuse running servers with `PLAYWRIGHT_BASE_URL`. |
+| Django reports that the frontend is not built | Use Vite on port 5173 for development, or build the frontend and collect static files before serving it through Django. |
+| Live weather is Unknown or rate-limited | Read the provider warning and pause requests after throttling. Demo trip remains an explicitly synthetic alternative. |
+| A typed city cannot be submitted | Select a city from its search suggestions so the trip has coordinates. |
 
 ## Deployment and limitations
 

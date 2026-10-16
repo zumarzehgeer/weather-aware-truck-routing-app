@@ -3,7 +3,7 @@
 import math
 from datetime import timedelta
 from .geometry import haversine
-from .providers import location_key
+from .providers.weather import location_key
 
 
 def demo_routes():
@@ -56,8 +56,7 @@ def demo_routes():
     for i, path in enumerate(paths):
         distances = [haversine(a, b) * 1.12 for a, b in zip(path, path[1:])]
         durations = [
-            d / (24 if i == 0 else 22) * (1.5 if j == 0 else 1)
-            for j, d in enumerate(distances)
+            d / (24 if i == 0 else 22) * (1.5 if j == 0 else 1) for j, d in enumerate(distances)
         ]
         routes.append(
             {
@@ -86,9 +85,7 @@ def demo_forecasts(locations, now):
                 {
                     "time": (start + timedelta(hours=h)).isoformat(),
                     "wind_mph": max(0, wind),
-                    "rain_in": max(
-                        0, storm * band * 0.3 * (0.7 + 0.3 * math.sin(h / 4))
-                    ),
+                    "rain_in": max(0, storm * band * 0.3 * (0.7 + 0.3 * math.sin(h / 4))),
                     "snow_in": 0.0,
                 }
             )

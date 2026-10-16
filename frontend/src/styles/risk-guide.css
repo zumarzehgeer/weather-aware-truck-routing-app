@@ -1,0 +1,79 @@
+.guide-dialog {
+  width: calc(100% - 32px);
+  max-width: 720px;
+  max-height: 85dvh;
+  background: #172b3a;
+  color: var(--ink);
+  border: 1px solid #4e6a7e;
+  border-radius: 16px;
+  padding: 0;
+  box-shadow: 0 18px 80px #03122080;
+}
+.guide-dialog::backdrop {
+  background: #071723c9;
+  backdrop-filter: blur(3px);
+}
+.guide-inner {
+  position: relative;
+  padding: 34px;
+}
+.dialog-close {
+  position: absolute;
+  right: 17px;
+  top: 17px;
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 33px;
+  background: #293f50;
+  border: 1px solid #537183;
+  color: #e1eff5;
+  border-radius: 8px;
+}
+.guide-dialog h2 {
+  font-size: 27px;
+  letter-spacing: -0.04em;
+  margin: 0 30px 16px 0;
+}
+.guide-dialog h3 {
+  font-size: 16px;
+  margin: 24px 0 8px;
+}
+.guide-dialog p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #b9cbd9;
+  margin-bottom: 12px;
+}
+.guide-dialog table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 22px 0;
+  white-space: nowrap;
+}
+.guide-dialog th,
+.guide-dialog td {
+  padding: 13px 9px;
+  border-bottom: 1px solid #3b5265;
+  text-align: left;
+}
+.guide-dialog thead {
+  background: #203d4b;
+  color: #d8e9ee;
+  font-size: 11px;
+}
+.guide-dialog tbody th {
+  font-weight: 500;
+  color: #d8e9ee;
+}
+.guide-dialog table i {
+  margin-right: 7px;
+}
+.guide-disclaimer {
+  padding: 14px;
+  background: #263d49;
+  border-left: 2px solid #74b9bd;
+  border-radius: 0 7px 7px 0;
+  font-size: 12px !important;
+}

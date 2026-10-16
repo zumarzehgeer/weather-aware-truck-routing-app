@@ -11,9 +11,7 @@ if os.environ.get("DJANGO_REQUIRE_SECRET", "false").lower() == "true" and (
         "Set DJANGO_SECRET_KEY to a random value of at least 40 characters in deployment settings."
     )
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
-ALLOWED_HOSTS = os.environ.get(
-    "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver"
-).split(",")
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
 if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
     ALLOWED_HOSTS.append(os.environ["RENDER_EXTERNAL_HOSTNAME"])
 INSTALLED_APPS = ["django.contrib.staticfiles", "routing"]
@@ -35,14 +33,8 @@ STATICFILES_DIRS = (
     if (BASE_DIR.parent / "frontend/dist/assets").exists()
     else []
 )
-STORAGES = {
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
-    }
-}
-DATABASES = {
-    "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}
-}
+STORAGES = {"staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
+DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
@@ -60,9 +52,5 @@ if os.environ.get("TRUST_PROXY", "false").lower() == "true":
 ENABLE_DEMO = os.environ.get("ENABLE_DEMO", "true").lower() == "true"
 OSRM_BASE_URL = os.environ.get("OSRM_BASE_URL", "https://router.project-osrm.org")
 WEATHER_BASE_URL = os.environ.get("WEATHER_BASE_URL", "https://api.open-meteo.com")
-GEOCODING_BASE_URL = os.environ.get(
-    "GEOCODING_BASE_URL", "https://geocoding-api.open-meteo.com"
-)
-PROVIDER_USER_AGENT = os.environ.get(
-    "PROVIDER_USER_AGENT", "WeatherAwareAssessment/1.0"
-)
+GEOCODING_BASE_URL = os.environ.get("GEOCODING_BASE_URL", "https://geocoding-api.open-meteo.com")
+PROVIDER_USER_AGENT = os.environ.get("PROVIDER_USER_AGENT", "WeatherAwareAssessment/1.0")

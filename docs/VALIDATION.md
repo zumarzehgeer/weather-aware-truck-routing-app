@@ -2,6 +2,26 @@
 
 Results below are dated observations, not guarantees of ongoing provider availability.
 
+## Structure and readability verification · 16 October 2026
+
+After separating UI components, the trip-state hook, styles, request validation and provider adapters:
+
+- Backend suite: **120 passed**. Frontend unit suite: **6 passed**.
+- Desktop/phone browser suites: **21 passed**, with one intentional duplicate mobile check skipped.
+- Production TypeScript/Vite build, Django system checks, static collection, Black and Prettier checks: **passed**.
+- Built-app smoke check on a fresh Django server: **passed** for health, frontend assets, three synthetic routes, complete arrival forecasts and 49 corridor frames. The temporary server was stopped afterward.
+- Python AST comparison confirmed that extracted provider functions and validation retained their original logic, and risk/geometry calculations were unchanged.
+
+Tests are grouped by feature, with shared fixtures separated from test cases. CI also checks consistent formatting. This refactor did not recheck hosted provider availability.
+
+### Final code review and Playwright recheck
+
+The review compared the complete working tree, including new untracked modules, against pre-refactor commit `f868124`. The Standards and Spec passes finished with **zero remaining findings**. One minor style-ownership observation was resolved by moving search dropdown rules to `trip-form.css`, weather popup rules to `map.css`, and result scrolling to `results.css`.
+
+After that correction, the 120 backend tests, 6 unit tests, 21 browser tests (one intentional duplicate skipped), production build, Django checks, static collection, formatter checks and fresh built-app smoke check passed again.
+
+The visible Playwright MCP browser also completed a real local Chicago–Detroit trip at 50-mile spacing: two distinct routes, all 14 arrival checkpoints complete, and Route A recommended. Route switching, checkpoint popups/table, layer toggles, guide focus, stale-label preservation and recalculation passed. Timeline exploration made no additional API requests and preserved arrival-time scores. At 320px, the popup remained within the map after its pan/fade completed, closed through its normal button, and the page had no horizontal overflow. The browser console had zero errors or warnings. These results apply to the local application; the hosted deployment was not rechecked.
+
 ## Local verification · 16 October 2026
 
 | Check | Last recorded result |

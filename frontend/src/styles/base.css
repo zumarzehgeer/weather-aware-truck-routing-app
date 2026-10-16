@@ -1,0 +1,90 @@
+/* Waycast: a map-first planning workspace, inspired by Spotter's freight tools. */
+:root {
+  font-family: 'Manrope Variable', 'Segoe UI', sans-serif;
+  color: #f1f5f9;
+  background: #0d1e2d;
+  font-synthesis: none;
+  font-size: 14px;
+  line-height: 1.55;
+  color-scheme: dark;
+  --canvas: #0d1e2d;
+  --surface: #1a2332;
+  --surface-raised: #202e3f;
+  --field: #122333;
+  --accent: #40e0d0;
+  --teal: #008080;
+  --ink: #f1f5f9;
+  --muted: #a0afc0;
+  --border: #304255;
+  --radius: 14px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+  color: inherit;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+button,
+input,
+select {
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+h1,
+h2,
+h3 {
+  color: var(--ink);
+}
+h2 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+}
+h3 {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+svg {
+  flex-shrink: 0;
+}

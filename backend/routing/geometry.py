@@ -17,16 +17,10 @@ def haversine(a, b):
 def sample_route(route, spacing_miles, departure):
     coords = route["geometry"]
     distances, durations = route["edge_distances"], route["edge_durations"]
-    if (
-        len(coords) < 2
-        or len(distances) != len(coords) - 1
-        or len(durations) != len(distances)
-    ):
+    if len(coords) < 2 or len(distances) != len(coords) - 1 or len(durations) != len(distances):
         raise ValueError("Routing geometry and edge annotations do not align")
     if any(abs(b[0] - a[0]) > 180 for a, b in zip(coords, coords[1:])):
-        raise ValueError(
-            "Antimeridian-crossing routes are outside the supported map extent"
-        )
+        raise ValueError("Antimeridian-crossing routes are outside the supported map extent")
     if any(not math.isfinite(x) or x < 0 for x in distances + durations):
         raise ValueError("Invalid routing annotations")
     distance_sum, duration_sum = sum(distances), sum(durations)
@@ -52,14 +46,10 @@ def sample_route(route, spacing_miles, departure):
     for target in targets:
         edge = min(max(0, bisect_right(cumulative_d, target) - 1), len(distances) - 1)
         length = cumulative_d[edge + 1] - cumulative_d[edge]
-        fraction = (
-            min(1, max(0, (target - cumulative_d[edge]) / length)) if length else 1
-        )
+        fraction = min(1, max(0, (target - cumulative_d[edge]) / length)) if length else 1
         a, b = coords[edge], coords[edge + 1]
         position = [a[j] + fraction * (b[j] - a[j]) for j in (0, 1)]
-        elapsed = cumulative_t[edge] + fraction * (
-            cumulative_t[edge + 1] - cumulative_t[edge]
-        )
+        elapsed = cumulative_t[edge] + fraction * (cumulative_t[edge + 1] - cumulative_t[edge])
         if target == 0:
             position, elapsed = coords[0], 0
         elif target == total:
@@ -105,9 +95,7 @@ def corridor_cells(routes, departure):
 
 def coarse_corridor(points, factor):
     lat_step = 0.36 * factor
-    lon_step = lat_step / max(
-        0.2, math.cos(math.radians(sum(p[1] for p in points) / len(points)))
-    )
+    lon_step = lat_step / max(0.2, math.cos(math.radians(sum(p[1] for p in points) / len(points))))
     cells = {}
     for lon, lat in points:
         x, y = grid_index(lon, lon_step, 180), grid_index(lat, lat_step, 85)
