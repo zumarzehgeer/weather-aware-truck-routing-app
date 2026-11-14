@@ -10,6 +10,10 @@ Waycast is a full-stack weather-aware truck route planner built for the Spotter 
 
 **Live weather:** Render uses browser-assisted public Open-Meteo requests to avoid depending on the host's exhausted shared weather quota. Django prepares the routes, validates returned forecasts and computes risk. Provider limits still apply to each visitor; missing forecasts remain Unknown and incomplete routes cannot be recommended. See the dated [validation record](docs/VALIDATION.md).
 
+![Waycast synthetic demo with route comparison and checkpoint weather](docs/images/waycast-demo.png)
+
+*Hosted synthetic demo, checked 14 November 2026. Route A is selected; Route C remains the recommendation.*
+
 ## Quick evaluation
 
 1. **See it work:** open the [live application](https://weather-aware-truck-routing-app.onrender.com/), select **Demo trip**, then **Compare demo routes**. The demo uses clearly labelled synthetic data. The host may need time to wake up.
