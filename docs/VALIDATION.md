@@ -21,6 +21,12 @@ Separately exercised the public Render deployment with explicitly synthetic data
 
 The deployment initially displayed Render's wake-up screen. A static screenshot and a four-state annotated GIF walkthrough are included for evaluation while the host starts. These checks do not establish current live weather/routing provider readiness, native touch-device behavior or Linux/macOS setup. The existing browser suite suppresses basemap requests and tests synthetic/mocked provider scenarios.
 
+### CI layout-assertion follow-up
+
+The first hosted CI run for the walkthrough commit passed compilation, formatting, backend tests and unit tests, but reported one mobile layout assertion failure (36 browser tests passed, one skipped). The assertion read warning and map rectangles in separate asynchronous calls while the results reveal uses smooth scrolling. Its reported overlap was 13 pixels; this is consistent with the viewport moving between measurements.
+
+The test now reads both rectangles in one synchronous browser evaluation and polls the same geometric condition. It still requires the warning to end above the map and both elements to exist. The affected mobile test passed three consecutive local repetitions, and Prettier passed. Application behavior is unchanged; the follow-up CI result should be read from the workflow linked in the README.
+
 ## Hotfix code-review follow-up · 16 October 2026
 
 Reviewed the three hosted-weather commits after `c664826` along the Standards and Spec axes, then repeated both passes after corrections. One P2 recovery defect was reproduced: malformed HTTP 200 forecasts could remain in the browser cache for 30 minutes, preventing later comparisons from fetching recovered provider data. Follow-up passes extended the correction to duplicate hours, truncated and stale forecast horizons.

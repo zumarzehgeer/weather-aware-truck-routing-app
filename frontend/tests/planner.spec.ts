@@ -74,11 +74,16 @@ test('incomplete weather and all No Travel routes never get recommended', async 
   await expect(page.getByRole('heading', { name: 'No route can be recommended' })).toBeVisible()
   await expect(page.getByText('Forecast gaps · excluded from recommendation')).toHaveCount(3)
   await expect(page.locator('.route-metrics').first()).toContainText('Unknown')
-  const warning = await page.locator('.plan-warnings').boundingBox()
-  const map = await page.locator('.map-shell').boundingBox()
-  expect(warning).not.toBeNull()
-  expect(map).not.toBeNull()
-  expect(warning!.y + warning!.height).toBeLessThanOrEqual(map!.y)
+  // Read both rectangles in one frame: the mobile result reveal can still be scrolling.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const warning = document.querySelector('.plan-warnings')?.getBoundingClientRect()
+        const map = document.querySelector('.map-shell')?.getBoundingClientRect()
+        return warning != null && map != null && warning.bottom <= map.top
+      }),
+    )
+    .toBe(true)
   await page.getByLabel('Truck load weight').fill('45000')
   await expect(page.getByText('Inputs changed.', { exact: false })).toBeVisible()
 })
@@ -107,3 +112,4 @@ test('all demo entry points are disabled when the server disables demo', async (
   await expect(page.getByRole('button', { name: 'Demo trip' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Explore the demo' })).toBeDisabled()
 })
+
