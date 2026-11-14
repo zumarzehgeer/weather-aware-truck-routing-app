@@ -1,5 +1,7 @@
 # Waycast · Weather-Aware Truck Routing
 
+[![Test and build](https://github.com/zumarzehgeer/weather-aware-truck-routing-app/actions/workflows/ci.yml/badge.svg)](https://github.com/zumarzehgeer/weather-aware-truck-routing-app/actions/workflows/ci.yml)
+
 Waycast is a full-stack weather-aware truck route planner built for the Spotter AI developer assessment. It compares driving routes using forecast weather at the truck's estimated arrival times, explains load-sensitive risk, and provides a separate 48-hour corridor outlook.
 
 **Application:** [weather-aware-truck-routing-app.onrender.com](https://weather-aware-truck-routing-app.onrender.com/) · **Repository:** [zumarzehgeer/weather-aware-truck-routing-app](https://github.com/zumarzehgeer/weather-aware-truck-routing-app)
@@ -7,6 +9,20 @@ Waycast is a full-stack weather-aware truck route planner built for the Spotter 
 [Run locally](#run-locally) · [Code tour](#architecture) · [Risk model](#weather-and-risk-model) · [API](#api) · [Tests](#verification) · [Deployment](#deployment-and-limitations)
 
 **Live weather:** Render uses browser-assisted public Open-Meteo requests to avoid depending on the host's exhausted shared weather quota. Django prepares the routes, validates returned forecasts and computes risk. Provider limits still apply to each visitor; missing forecasts remain Unknown and incomplete routes cannot be recommended. See the dated [validation record](docs/VALIDATION.md).
+
+## Quick evaluation
+
+1. **See it work:** open the [live application](https://weather-aware-truck-routing-app.onrender.com/), select **Demo trip**, then **Compare demo routes**. The demo uses clearly labelled synthetic data. The host may need time to wake up.
+2. **Inspect the behavior:** compare route cards, select a weather checkpoint and move the corridor timeline. Arrival-time route scores remain separate from the corridor forecast.
+3. **Inspect the engineering:** start with the [architecture and code tour](#architecture), [risk rules](#weather-and-risk-model) and [verification instructions](#verification).
+
+### Engineering decisions worth reviewing
+
+- **Incomplete forecasts remain Unknown.** Routes without complete forecast coverage cannot be recommended; provider failures never silently switch to synthetic data.
+- **Domain logic is isolated.** Geometry and risk calculations are separate from HTTP handlers and provider adapters, with regression tests for boundaries and failure behavior.
+- **Deployment tradeoffs are explicit.** A single worker shares in-memory caches and quota controls. Multiple workers require shared state; browser-assisted forecasts are validated but are not a server-authenticated weather feed.
+
+This is an assessment project. OSRM's driving profile does not enforce truck restrictions; the application is not an operational truck navigation system. See [deployment and limitations](#deployment-and-limitations).
 
 ## Technology
 
