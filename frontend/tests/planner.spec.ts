@@ -112,4 +112,3 @@ test('all demo entry points are disabled when the server disables demo', async (
   await expect(page.getByRole('button', { name: 'Demo trip' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Explore the demo' })).toBeDisabled()
 })
-
