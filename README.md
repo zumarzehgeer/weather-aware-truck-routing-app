@@ -16,6 +16,8 @@ Waycast is a full-stack weather-aware truck route planner built for the Spotter 
 
 ## Quick evaluation
 
+**[Watch the 17-second captured walkthrough](docs/images/waycast-walkthrough.gif)** — four annotated states from the hosted synthetic demo: route overview, comparison, checkpoint weather and the +24h corridor forecast.
+
 1. **See it work:** open the [live application](https://weather-aware-truck-routing-app.onrender.com/), select **Demo trip**, then **Compare demo routes**. The demo uses clearly labelled synthetic data. The host may need time to wake up.
 2. **Inspect the behavior:** compare route cards, select a weather checkpoint and move the corridor timeline. Arrival-time route scores remain separate from the corridor forecast.
 3. **Inspect the engineering:** start with the [architecture and code tour](#architecture), [risk rules](#weather-and-risk-model) and [verification instructions](#verification).
@@ -254,7 +256,7 @@ See [.env.example](.env.example). Keep real `.env` files and secret values out o
 
 ## Verification
 
-Last local verification including the hosted-weather fix, **16 October 2026**:
+Last fresh-checkout verification, **14 November 2026**, using Python 3.13 and Node 24 on Windows:
 
 | Check | Result |
 |---|---|
@@ -329,3 +331,4 @@ Replace `https://YOUR-HOST` with the actual deployment URL or a local Django ser
 See [Docker and Render deployment instructions](docs/DEPLOYMENT.md). The multi-stage Docker image builds the frontend, collects static assets and runs as a non-root user. `render.yaml` defines a single Docker web service; a separate frontend host, database or persistent disk is unnecessary.
 
 OSRM's driving profile does **not** enforce commercial truck height, weight, hazmat or road restrictions. Load affects the weather model only. ETAs exclude live traffic, stops and rest breaks. Forecast grids, hourly values and checkpoint sampling are approximations; gusts, ice, visibility, terrain exposure and flooding are not modeled. A recommendation under this supplied model does not establish driving safety. In-memory budgets reset on restart and are not distributed abuse protection.
+

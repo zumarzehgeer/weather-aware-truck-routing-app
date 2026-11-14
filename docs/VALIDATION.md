@@ -2,6 +2,25 @@
 
 Results below are dated observations, not guarantees of ongoing provider availability.
 
+## Portfolio verification · 14 November 2026
+
+Verified a fresh checkout of the portfolio documentation branch on Windows using Python 3.13 and Node 24.18.0. Installed the declared Python requirements in a new virtual environment and frontend dependencies with `npm ci`.
+
+| Check | Result |
+|---|---|
+| Backend regression suite | 144 passed |
+| Frontend unit suite | 6 passed |
+| Desktop and mobile Chromium suite | 37 passed; 1 intentional duplicate layout check skipped |
+| TypeScript and production build | Passed |
+| Django system check and static collection | Passed |
+| Black and Prettier | Passed |
+
+The initial backend run preceded static collection and emitted 58 warnings about the absent static directory; all tests passed, and static collection then succeeded. Browser/server subprocesses and formatting required execution outside the local sandbox; stalled sandbox attempts were stopped. Black was run with one worker. No application code or dependency manifests changed.
+
+Separately exercised the public Render deployment with explicitly synthetic data. Three route cards and the recommendation explanation rendered. Selecting a different route changed the selected route without changing the recommendation; its arrival-time weather table expanded; the corridor timeline advanced to +24h. At a 390×844 CSS-pixel viewport, cards stacked and route selection/checkpoint details worked. The measured page width was 375 CSS pixels against a 390-pixel viewport, with no page-level horizontal overflow. The wide checkpoint table uses its own horizontal scrolling area.
+
+The deployment initially displayed Render's wake-up screen. A static screenshot and a four-state annotated GIF walkthrough are included for evaluation while the host starts. These checks do not establish current live weather/routing provider readiness, native touch-device behavior or Linux/macOS setup. The existing browser suite suppresses basemap requests and tests synthetic/mocked provider scenarios.
+
 ## Hotfix code-review follow-up · 16 October 2026
 
 Reviewed the three hosted-weather commits after `c664826` along the Standards and Spec axes, then repeated both passes after corrections. One P2 recovery defect was reproduced: malformed HTTP 200 forecasts could remain in the browser cache for 30 minutes, preventing later comparisons from fetching recovered provider data. Follow-up passes extended the correction to duplicate hours, truncated and stale forecast horizons.
@@ -81,3 +100,4 @@ Hosted live weather and the deployment of subsequent UI changes have not been re
 ## Reproduce
 
 See [README verification commands](../README.md#verification). Backend, unit and browser suites plus the production build run in GitHub Actions. For an existing local server, set `PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173`; otherwise the browser suite starts its own Django server on port 8000 after a frontend build. Live smoke checks are separate and consume provider quota.
+
