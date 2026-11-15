@@ -1,5 +1,7 @@
 # Waycast · Weather-Aware Truck Routing
 
+[![Test and build](https://github.com/zumarzehgeer/weather-aware-truck-routing-app/actions/workflows/ci.yml/badge.svg)](https://github.com/zumarzehgeer/weather-aware-truck-routing-app/actions/workflows/ci.yml)
+
 Waycast is a full-stack weather-aware truck route planner built for the Spotter AI developer assessment. It compares driving routes using forecast weather at the truck's estimated arrival times, explains load-sensitive risk, and provides a separate 48-hour corridor outlook.
 
 **Application:** [weather-aware-truck-routing-app.onrender.com](https://weather-aware-truck-routing-app.onrender.com/) · **Repository:** [zumarzehgeer/weather-aware-truck-routing-app](https://github.com/zumarzehgeer/weather-aware-truck-routing-app)
@@ -7,6 +9,26 @@ Waycast is a full-stack weather-aware truck route planner built for the Spotter 
 [Run locally](#run-locally) · [Code tour](#architecture) · [Risk model](#weather-and-risk-model) · [API](#api) · [Tests](#verification) · [Deployment](#deployment-and-limitations)
 
 **Live weather:** Render uses browser-assisted public Open-Meteo requests to avoid depending on the host's exhausted shared weather quota. Django prepares the routes, validates returned forecasts and computes risk. Provider limits still apply to each visitor; missing forecasts remain Unknown and incomplete routes cannot be recommended. See the dated [validation record](docs/VALIDATION.md).
+
+![Waycast synthetic demo with route comparison and checkpoint weather](docs/images/waycast-demo.png)
+
+*Hosted synthetic demo, checked 14 November 2026. Route A is selected; Route C remains the recommendation.*
+
+## Quick evaluation
+
+**[Watch the 17-second captured walkthrough](docs/images/waycast-walkthrough.gif)** — four annotated states from the hosted synthetic demo: route overview, comparison, checkpoint weather and the +24h corridor forecast.
+
+1. **See it work:** open the [live application](https://weather-aware-truck-routing-app.onrender.com/), select **Demo trip**, then **Compare demo routes**. The demo uses clearly labelled synthetic data. The host may need time to wake up.
+2. **Inspect the behavior:** compare route cards, select a weather checkpoint and move the corridor timeline. Arrival-time route scores remain separate from the corridor forecast.
+3. **Inspect the engineering:** start with the [architecture and code tour](#architecture), [risk rules](#weather-and-risk-model) and [verification instructions](#verification).
+
+### Engineering decisions worth reviewing
+
+- **Incomplete forecasts remain Unknown.** Routes without complete forecast coverage cannot be recommended; provider failures never silently switch to synthetic data.
+- **Domain logic is isolated.** Geometry and risk calculations are separate from HTTP handlers and provider adapters, with regression tests for boundaries and failure behavior.
+- **Deployment tradeoffs are explicit.** A single worker shares in-memory caches and quota controls. Multiple workers require shared state; browser-assisted forecasts are validated but are not a server-authenticated weather feed.
+
+This is an assessment project. OSRM's driving profile does not enforce truck restrictions; the application is not an operational truck navigation system. See [deployment and limitations](#deployment-and-limitations).
 
 ## Technology
 
@@ -234,7 +256,7 @@ See [.env.example](.env.example). Keep real `.env` files and secret values out o
 
 ## Verification
 
-Last local verification including the hosted-weather fix, **16 October 2026**:
+Last fresh-checkout verification, **14 November 2026**, using Python 3.13 and Node 24 on Windows:
 
 | Check | Result |
 |---|---|
@@ -309,3 +331,4 @@ Replace `https://YOUR-HOST` with the actual deployment URL or a local Django ser
 See [Docker and Render deployment instructions](docs/DEPLOYMENT.md). The multi-stage Docker image builds the frontend, collects static assets and runs as a non-root user. `render.yaml` defines a single Docker web service; a separate frontend host, database or persistent disk is unnecessary.
 
 OSRM's driving profile does **not** enforce commercial truck height, weight, hazmat or road restrictions. Load affects the weather model only. ETAs exclude live traffic, stops and rest breaks. Forecast grids, hourly values and checkpoint sampling are approximations; gusts, ice, visibility, terrain exposure and flooding are not modeled. A recommendation under this supplied model does not establish driving safety. In-memory budgets reset on restart and are not distributed abuse protection.
+
